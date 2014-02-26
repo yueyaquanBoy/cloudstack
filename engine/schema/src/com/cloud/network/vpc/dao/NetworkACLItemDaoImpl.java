@@ -84,6 +84,13 @@ public class NetworkACLItemDaoImpl extends GenericDaoBase<NetworkACLItemVO, Long
     }
 
     @Override
+    public NetworkACLItemVO findById(Long id) {
+        NetworkACLItemVO item = super.findById(id);
+        loadCidrs(item);
+        return item;
+    }
+
+    @Override
     public boolean setStateToAdd(NetworkACLItemVO rule) {
         SearchCriteria<NetworkACLItemVO> sc = AllFieldsSearch.create();
         sc.setParameters("id", rule.getId());
@@ -104,7 +111,10 @@ public class NetworkACLItemDaoImpl extends GenericDaoBase<NetworkACLItemVO, Long
     public List<NetworkACLItemVO> listByACL(long aclId) {
         SearchCriteria<NetworkACLItemVO> sc = AllFieldsSearch.create();
         sc.setParameters("aclId", aclId);
-
+        List<NetworkACLItemVO> list = listBy(sc);
+        for(NetworkACLItemVO item :list) {
+            loadCidrs(item);
+        }
         return listBy(sc);
     }
 
@@ -121,7 +131,9 @@ public class NetworkACLItemDaoImpl extends GenericDaoBase<NetworkACLItemVO, Long
         SearchCriteria<NetworkACLItemVO> sc = AllFieldsSearch.create();
         sc.setParameters("aclId", aclId);
         sc.setParameters("number", number);
-        return findOneBy(sc);
+        NetworkACLItemVO vo = findOneBy(sc);
+        loadCidrs(vo);
+        return vo;
     }
 
     @Override
