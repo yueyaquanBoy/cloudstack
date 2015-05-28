@@ -16,18 +16,19 @@
 // under the License.
 package org.apache.cloudstack.saml;
 
-import com.cloud.configuration.Config;
 import com.cloud.utils.component.AdapterBase;
 import org.apache.cloudstack.api.auth.PluggableAPIAuthenticator;
 import org.apache.cloudstack.api.command.GetServiceProviderMetaDataCmd;
 import org.apache.cloudstack.api.command.SAML2LoginAPIAuthenticatorCmd;
 import org.apache.cloudstack.api.command.SAML2LogoutAPIAuthenticatorCmd;
+import org.apache.cloudstack.framework.config.ConfigKey;
+import org.apache.cloudstack.framework.config.Configurable;
 import org.apache.cloudstack.framework.config.dao.ConfigurationDao;
 import org.apache.cloudstack.framework.security.keystore.KeystoreDao;
 import org.apache.cloudstack.framework.security.keystore.KeystoreVO;
 import org.apache.cloudstack.utils.auth.SAMLUtils;
-import org.apache.log4j.Logger;
 import org.apache.commons.codec.binary.Base64;
+import org.apache.log4j.Logger;
 import org.opensaml.DefaultBootstrap;
 import org.opensaml.common.xml.SAMLConstants;
 import org.opensaml.saml2.metadata.EntityDescriptor;
@@ -67,7 +68,7 @@ import java.util.List;
 
 @Component
 @Local(value = {SAML2AuthManager.class, PluggableAPIAuthenticator.class})
-public class SAML2AuthManagerImpl extends AdapterBase implements SAML2AuthManager {
+public class SAML2AuthManagerImpl extends AdapterBase implements SAML2AuthManager, Configurable {
     private static final Logger s_logger = Logger.getLogger(SAML2AuthManagerImpl.class);
 
     private String serviceProviderId;
@@ -96,6 +97,9 @@ public class SAML2AuthManagerImpl extends AdapterBase implements SAML2AuthManage
     public boolean start() {
         if (isSAMLPluginEnabled()) {
             setup();
+            s_logger.info("SAML auth plugin loaded");
+        } else {
+            s_logger.info("SAML auth plugin not enabled so not loading");
         }
         return super.start();
     }
@@ -143,19 +147,16 @@ public class SAML2AuthManagerImpl extends AdapterBase implements SAML2AuthManage
             }
         }
 
-        this.serviceProviderId = _configDao.getValue(Config.SAMLServiceProviderID.key());
-        this.identityProviderId = _configDao.getValue(Config.SAMLIdentityProviderID.key());
+        this.serviceProviderId = SAMLServiceProviderID.value();
+        this.identityProviderId = "https://openidp.feide.no"; // FIXME: SAMLIdentityProviderID.key();
 
-        this.spSingleSignOnUrl = _configDao.getValue(Config.SAMLServiceProviderSingleSignOnURL.key());
-        this.spSingleLogOutUrl = _configDao.getValue(Config.SAMLServiceProviderSingleLogOutURL.key());
+        this.spSingleSignOnUrl = SAMLServiceProviderSingleSignOnURL.value();
+        this.spSingleLogOutUrl = SAMLServiceProviderSingleLogOutURL.value();
 
-        String idpMetaDataUrl = _configDao.getValue(Config.SAMLIdentityProviderMetadataURL.key());
+        String idpMetaDataUrl = SAMLIdentityProviderMetadataURL.value();
 
         int tolerance = 30000;
-        String timeout = _configDao.getValue(Config.SAMLTimeout.key());
-        if (timeout != null) {
-            tolerance = Integer.parseInt(timeout);
-        }
+        tolerance = SAMLTimeout.value();
 
         try {
             DefaultBootstrap.bootstrap();
@@ -259,7 +260,7 @@ public class SAML2AuthManagerImpl extends AdapterBase implements SAML2AuthManage
     }
 
     public Boolean isSAMLPluginEnabled() {
-        return Boolean.valueOf(_configDao.getValue(Config.SAMLIsPluginEnabled.key()));
+        return SAMLIsPluginEnabled.value();
     }
 
     public X509Certificate getSpX509Certificate() {
@@ -269,5 +270,17 @@ public class SAML2AuthManagerImpl extends AdapterBase implements SAML2AuthManage
     @Override
     public KeyPair getSpKeyPair() {
         return spKeyPair;
+    }
+
+    @Override
+    public String getConfigComponentName() {
+        return "SAML2-PLUGIN";
+    }
+
+    @Override
+    public ConfigKey<?>[] getConfigKeys() {
+        return new ConfigKey<?>[]{SAMLIsPluginEnabled, SAMLUserAttributeName, SAMLCloudStackRedirectionUrl,
+                SAMLServiceProviderSingleSignOnURL, SAMLServiceProviderSingleLogOutURL,
+                SAMLServiceProviderID, SAMLIdentityProviderMetadataURL, SAMLTimeout};
     }
 }

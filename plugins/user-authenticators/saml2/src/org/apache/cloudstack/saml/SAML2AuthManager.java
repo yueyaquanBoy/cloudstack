@@ -18,11 +18,37 @@
 package org.apache.cloudstack.saml;
 
 import org.apache.cloudstack.api.auth.PluggableAPIAuthenticator;
+import org.apache.cloudstack.framework.config.ConfigKey;
 
 import java.security.KeyPair;
 import java.security.cert.X509Certificate;
 
 public interface SAML2AuthManager extends PluggableAPIAuthenticator {
+
+    public static final ConfigKey<Boolean> SAMLIsPluginEnabled = new ConfigKey<Boolean>("Advanced", Boolean.class, "saml2.enabled", "false",
+            "Indicates whether SAML SSO plugin is enabled or not", true);
+
+    public static final ConfigKey<String> SAMLUserAttributeName = new ConfigKey<String>("Advanced", String.class, "saml2.user.attribute", "uid",
+            "Attribute name to be looked for in SAML response that will contain the username", true);
+
+    public static final ConfigKey<String> SAMLCloudStackRedirectionUrl = new ConfigKey<String>("Advanced", String.class, "saml2.redirect.url", "http://localhost:8080/client",
+            "The CloudStack UI url the SSO should redirected to when successful", true);
+
+    public static final ConfigKey<String> SAMLServiceProviderSingleSignOnURL = new ConfigKey<String>("Advanced", String.class, "saml2.sp.sso.url", "http://localhost:8080/client/api?command=samlSso",
+            "SAML2 CloudStack Service Provider Single Sign On URL", true);
+
+    public static final ConfigKey<String> SAMLServiceProviderSingleLogOutURL = new ConfigKey<String>("Advanced", String.class, "saml2.sp.slo.url", "http://localhost:8080/client/api?command=samlSlo",
+            "SAML2 CloudStack Service Provider Single Log Out URL", true);
+
+    public static final ConfigKey<String> SAMLServiceProviderID = new ConfigKey<String>("Advanced", String.class, "saml2.sp.id", "org.apache.cloudstack",
+            "SAML2 Service Provider Identifier String", true);
+
+    public static final ConfigKey<String> SAMLIdentityProviderMetadataURL = new ConfigKey<String>("Advanced", String.class, "saml2.idp.metadata.url", "https://openidp.feide.no/simplesaml/saml2/idp/metadata.php",
+            "SAML2 Identity Provider Metadata XML Url", true);
+
+    public static final ConfigKey<Integer> SAMLTimeout = new ConfigKey<Integer>("Advanced", Integer.class, "saml2.timeout", "30000",
+            "SAML2 IDP Metadata Downloading and parsing etc. activity timeout in milliseconds", true);
+
     public String getServiceProviderId();
     public String getIdentityProviderId();
 
