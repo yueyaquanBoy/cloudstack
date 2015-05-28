@@ -18,12 +18,12 @@
 package org.apache.cloudstack.api.command;
 
 import com.cloud.api.response.ApiResponseSerializer;
-import com.cloud.configuration.Config;
 import com.cloud.domain.Domain;
 import com.cloud.exception.CloudAuthenticationException;
 import com.cloud.user.Account;
 import com.cloud.user.DomainManager;
 import com.cloud.user.UserAccount;
+import com.cloud.user.UserAccountVO;
 import com.cloud.user.dao.UserAccountDao;
 import com.cloud.utils.HttpUtils;
 import com.cloud.utils.db.EntityManager;
@@ -38,7 +38,6 @@ import org.apache.cloudstack.api.auth.APIAuthenticationType;
 import org.apache.cloudstack.api.auth.APIAuthenticator;
 import org.apache.cloudstack.api.auth.PluggableAPIAuthenticator;
 import org.apache.cloudstack.api.response.LoginCmdResponse;
-import org.apache.cloudstack.context.CallContext;
 import org.apache.cloudstack.framework.config.dao.ConfigurationDao;
 import org.apache.cloudstack.saml.SAML2AuthManager;
 import org.apache.cloudstack.utils.auth.SAMLUtils;
@@ -74,7 +73,6 @@ import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 @APICommand(name = "samlSso", description = "SP initiated SAML Single Sign On", requestHasSensitiveInfo = true, responseObject = LoginCmdResponse.class, entityType = {})
 public class SAML2LoginAPIAuthenticatorCmd extends BaseCmd implements APIAuthenticator {
@@ -205,15 +203,15 @@ public class SAML2LoginAPIAuthenticatorCmd extends BaseCmd implements APIAuthent
                     }
                 }
 
-                String domainString = _configDao.getValue(Config.SAMLUserDomain.key());
+                String defaultDomainString = SAML2AuthManager.SAMLDefaultDomain.value();
 
                 Long domainId = null;
-                Domain domain = _domainMgr.getDomain(domainString);
+                Domain domain = _domainMgr.getDomain(defaultDomainString);
                 if (domain != null) {
                     domainId = domain.getId();
                 } else {
                     try {
-                        domainId = Long.parseLong(domainString);
+                        domainId = Long.parseLong(defaultDomainString);
                     } catch (NumberFormatException ignore) {
                     }
                 }
@@ -222,12 +220,6 @@ public class SAML2LoginAPIAuthenticatorCmd extends BaseCmd implements APIAuthent
                 }
 
                 String username = null;
-                String password = SAMLUtils.generateSecureRandomId(); // Random password
-                String firstName = "";
-                String lastName = "";
-                String timeZone = "GMT";
-                String email = "";
-                short accountType = 0; // User account
 
                 Assertion assertion = processedSAMLResponse.getAssertions().get(0);
                 NameID nameId = assertion.getSubject().getNameID();
@@ -237,9 +229,6 @@ public class SAML2LoginAPIAuthenticatorCmd extends BaseCmd implements APIAuthent
 
                 if (nameId.getFormat().equals(NameIDType.PERSISTENT) || nameId.getFormat().equals(NameIDType.EMAIL)) {
                     username = nameId.getValue();
-                    if (nameId.getFormat().equals(NameIDType.EMAIL)) {
-                        email = username;
-                    }
                 }
 
                 List<AttributeStatement> attributeStatements = assertion.getAttributeStatements();
@@ -252,44 +241,34 @@ public class SAML2LoginAPIAuthenticatorCmd extends BaseCmd implements APIAuthent
                         for (Attribute attribute: attributeStatement.getAttributes()) {
                             String attributeName = attribute.getName();
                             String attributeValue = attribute.getAttributeValues().get(0).getDOM().getTextContent();
-                            if (attributeName.equalsIgnoreCase("uid") && username == null) {
+                            if (attributeName.equalsIgnoreCase(SAML2AuthManager.SAMLUserAttributeName.value()) && username == null) {
                                 username = attributeValue;
-                            } else if (attributeName.equalsIgnoreCase("givenName")) {
-                                firstName = attributeValue;
-                            } else if (attributeName.equalsIgnoreCase(("sn"))) {
-                                lastName = attributeValue;
-                            } else if (attributeName.equalsIgnoreCase("mail")) {
-                                email = attributeValue;
                             }
                         }
                     }
                 }
 
-                if (username == null && email != null) {
-                    username = email;
+                List<UserAccountVO> userAccounts = _userAccountDao.getAllUsersByName(username);
+                UserAccount userAccount = null;
+                if (userAccounts != null && userAccounts.size() > 0) {
+                    userAccount = userAccounts.get(0);
                 }
-                final String uniqueUserId = SAMLUtils.createSAMLId(username);
-
-                UserAccount userAccount = _userAccountDao.getUserAccount(username, domainId);
-                if (userAccount == null && uniqueUserId != null && username != null) {
-                    CallContext.current().setEventDetails("SAML Account/User with UserName: " + username + ", FirstName :" + password + ", LastName: " + lastName);
-                    userAccount = _accountService.createUserAccount(username, password, firstName, lastName, email, timeZone,
-                            username, (short) accountType, domainId, null, null, UUID.randomUUID().toString(), uniqueUserId);
-                }
-
                 if (userAccount != null) {
                     try {
                         if (_apiServer.verifyUser(userAccount.getId())) {
-                            LoginCmdResponse loginResponse = (LoginCmdResponse) _apiServer.loginUser(session, username, userAccount.getPassword(), domainId, null, remoteAddress, params);
+                            LoginCmdResponse loginResponse = (LoginCmdResponse) _apiServer.loginUser(session, userAccount.getUsername(), userAccount.getPassword(), userAccount.getDomainId(), null, remoteAddress, params);
                             resp.addCookie(new Cookie("userid", URLEncoder.encode(loginResponse.getUserId(), HttpUtils.UTF_8)));
                             resp.addCookie(new Cookie("domainid", URLEncoder.encode(loginResponse.getDomainId(), HttpUtils.UTF_8)));
                             resp.addCookie(new Cookie("role", URLEncoder.encode(loginResponse.getType(), HttpUtils.UTF_8)));
                             resp.addCookie(new Cookie("username", URLEncoder.encode(loginResponse.getUsername(), HttpUtils.UTF_8)));
                             resp.addCookie(new Cookie("sessionkey", URLEncoder.encode(loginResponse.getSessionKey(), HttpUtils.UTF_8)));
                             resp.addCookie(new Cookie("account", URLEncoder.encode(loginResponse.getAccount(), HttpUtils.UTF_8)));
-                            resp.addCookie(new Cookie("timezone", URLEncoder.encode(loginResponse.getTimeZone(), HttpUtils.UTF_8)));
+                            String timezone = loginResponse.getTimeZone();
+                            if (timezone != null) {
+                                resp.addCookie(new Cookie("timezone", URLEncoder.encode(timezone, HttpUtils.UTF_8)));
+                            }
                             resp.addCookie(new Cookie("userfullname", URLEncoder.encode(loginResponse.getFirstName() + " " + loginResponse.getLastName(), HttpUtils.UTF_8).replace("+", "%20")));
-                            resp.sendRedirect(_configDao.getValue(Config.SAMLCloudStackRedirectionUrl.key()));
+                            resp.sendRedirect(SAML2AuthManager.SAMLCloudStackRedirectionUrl.value());
                             return ApiResponseSerializer.toSerializedString(loginResponse, responseType);
 
                         }
@@ -302,7 +281,7 @@ public class SAML2LoginAPIAuthenticatorCmd extends BaseCmd implements APIAuthent
             auditTrailSb.append(e.getMessage());
         }
         throw new ServerApiException(ApiErrorCode.ACCOUNT_ERROR, _apiServer.getSerializedApiError(ApiErrorCode.ACCOUNT_ERROR.getHttpCode(),
-                "Unable to authenticate or retrieve user while performing SAML based SSO",
+                "Unable to authenticate user while performing SAML based SSO. Please make sure your user/account has been added, enable and authorized by the admin before you can authenticate. Please contact your administrator.",
                 params, responseType));
     }
 

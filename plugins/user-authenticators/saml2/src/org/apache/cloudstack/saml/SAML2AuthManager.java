@@ -31,6 +31,9 @@ public interface SAML2AuthManager extends PluggableAPIAuthenticator {
     public static final ConfigKey<String> SAMLUserAttributeName = new ConfigKey<String>("Advanced", String.class, "saml2.user.attribute", "uid",
             "Attribute name to be looked for in SAML response that will contain the username", true);
 
+    public static final ConfigKey<String> SAMLDefaultDomain = new ConfigKey<String>("Advanced", String.class, "saml2.default.domainid", "1",
+            "The default domain UUID to use if domain information is not found while authenticating users", true);
+
     public static final ConfigKey<String> SAMLCloudStackRedirectionUrl = new ConfigKey<String>("Advanced", String.class, "saml2.redirect.url", "http://localhost:8080/client",
             "The CloudStack UI url the SSO should redirected to when successful", true);
 
