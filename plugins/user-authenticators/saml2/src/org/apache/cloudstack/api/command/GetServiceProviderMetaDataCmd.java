@@ -159,16 +159,28 @@ public class GetServiceProviderMetaDataCmd extends BaseCmd implements APIAuthent
         spSSODescriptor.getNameIDFormats().add(transientNameIDFormat);
 
         AssertionConsumerService assertionConsumerService = new AssertionConsumerServiceBuilder().buildObject();
-        assertionConsumerService.setIndex(0);
-        assertionConsumerService.setBinding(SAMLConstants.SAML2_REDIRECT_BINDING_URI);
+        assertionConsumerService.setIndex(1);
+        assertionConsumerService.setIsDefault(true);
+        assertionConsumerService.setBinding(SAMLConstants.SAML2_POST_BINDING_URI);
         assertionConsumerService.setLocation(_samlAuthManager.getSpSingleSignOnUrl());
+        spSSODescriptor.getAssertionConsumerServices().add(assertionConsumerService);
+
+        AssertionConsumerService assertionConsumerService2 = new AssertionConsumerServiceBuilder().buildObject();
+        assertionConsumerService2.setIndex(2);
+        assertionConsumerService2.setBinding(SAMLConstants.SAML2_REDIRECT_BINDING_URI);
+        assertionConsumerService2.setLocation(_samlAuthManager.getSpSingleSignOnUrl());
+        spSSODescriptor.getAssertionConsumerServices().add(assertionConsumerService2);
 
         SingleLogoutService ssoService = new SingleLogoutServiceBuilder().buildObject();
         ssoService.setBinding(SAMLConstants.SAML2_REDIRECT_BINDING_URI);
         ssoService.setLocation(_samlAuthManager.getSpSingleLogOutUrl());
-
         spSSODescriptor.getSingleLogoutServices().add(ssoService);
-        spSSODescriptor.getAssertionConsumerServices().add(assertionConsumerService);
+
+        SingleLogoutService ssoService2 = new SingleLogoutServiceBuilder().buildObject();
+        ssoService2.setBinding(SAMLConstants.SAML2_POST_BINDING_URI);
+        ssoService2.setLocation(_samlAuthManager.getSpSingleLogOutUrl());
+        spSSODescriptor.getSingleLogoutServices().add(ssoService2);
+
         spSSODescriptor.addSupportedProtocol(SAMLConstants.SAML20P_NS);
         spEntityDescriptor.getRoleDescriptors().add(spSSODescriptor);
 
