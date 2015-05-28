@@ -17,7 +17,6 @@
 package org.apache.cloudstack.api.command;
 
 import com.cloud.api.response.ApiResponseSerializer;
-import com.cloud.configuration.Config;
 import com.cloud.user.Account;
 import org.apache.cloudstack.api.APICommand;
 import org.apache.cloudstack.api.ApiErrorCode;
@@ -93,7 +92,7 @@ public class SAML2LogoutAPIAuthenticatorCmd extends BaseCmd implements APIAuthen
 
         if (session == null) {
             try {
-                resp.sendRedirect(_configDao.getValue(Config.SAMLCloudStackRedirectionUrl.key()));
+                resp.sendRedirect(SAML2AuthManager.SAMLCloudStackRedirectionUrl.value());
             } catch (IOException ignored) {
             }
             return responseString;
@@ -122,7 +121,7 @@ public class SAML2LogoutAPIAuthenticatorCmd extends BaseCmd implements APIAuthen
                 s_logger.error("SAMLResponse processing error: " + e.getMessage());
             }
             try {
-                resp.sendRedirect(_configDao.getValue(Config.SAMLCloudStackRedirectionUrl.key()));
+                resp.sendRedirect(SAML2AuthManager.SAMLCloudStackRedirectionUrl.value());
             } catch (IOException ignored) {
             }
             return responseString;
@@ -132,7 +131,7 @@ public class SAML2LogoutAPIAuthenticatorCmd extends BaseCmd implements APIAuthen
         String sessionIndex = (String) session.getAttribute(SAMLUtils.SAML_SESSION);
         if (nameId == null || sessionIndex == null) {
             try {
-                resp.sendRedirect(_configDao.getValue(Config.SAMLCloudStackRedirectionUrl.key()));
+                resp.sendRedirect(SAML2AuthManager.SAMLCloudStackRedirectionUrl.value());
             } catch (IOException ignored) {
             }
             return responseString;
