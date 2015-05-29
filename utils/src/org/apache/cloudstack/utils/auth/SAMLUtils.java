@@ -35,8 +35,6 @@ import org.opensaml.saml2.core.AuthnRequest;
 import org.opensaml.saml2.core.Issuer;
 import org.opensaml.saml2.core.LogoutRequest;
 import org.opensaml.saml2.core.NameID;
-import org.opensaml.saml2.core.NameIDPolicy;
-import org.opensaml.saml2.core.NameIDType;
 import org.opensaml.saml2.core.RequestedAuthnContext;
 import org.opensaml.saml2.core.Response;
 import org.opensaml.saml2.core.SessionIndex;
@@ -45,7 +43,6 @@ import org.opensaml.saml2.core.impl.AuthnRequestBuilder;
 import org.opensaml.saml2.core.impl.IssuerBuilder;
 import org.opensaml.saml2.core.impl.LogoutRequestBuilder;
 import org.opensaml.saml2.core.impl.NameIDBuilder;
-import org.opensaml.saml2.core.impl.NameIDPolicyBuilder;
 import org.opensaml.saml2.core.impl.RequestedAuthnContextBuilder;
 import org.opensaml.saml2.core.impl.SessionIndexBuilder;
 import org.opensaml.xml.ConfigurationException;
@@ -130,13 +127,6 @@ public class SAMLUtils {
         Issuer issuer = issuerBuilder.buildObject();
         issuer.setValue(spId);
 
-        // NameIDPolicy
-        NameIDPolicyBuilder nameIdPolicyBuilder = new NameIDPolicyBuilder();
-        NameIDPolicy nameIdPolicy = nameIdPolicyBuilder.buildObject();
-        nameIdPolicy.setFormat(NameIDType.PERSISTENT);
-        nameIdPolicy.setSPNameQualifier(spId);
-        nameIdPolicy.setAllowCreate(true);
-
         // AuthnContextClass
         AuthnContextClassRefBuilder authnContextClassRefBuilder = new AuthnContextClassRefBuilder();
         AuthnContextClassRef authnContextClassRef = authnContextClassRefBuilder.buildObject(
@@ -160,12 +150,11 @@ public class SAMLUtils {
         authnRequest.setVersion(SAMLVersion.VERSION_20);
         authnRequest.setForceAuthn(false);
         authnRequest.setIsPassive(false);
-        authnRequest.setIssuer(issuer);
         authnRequest.setIssueInstant(new DateTime());
-        authnRequest.setProtocolBinding(SAMLConstants.SAML2_REDIRECT_BINDING_URI);
+        authnRequest.setProtocolBinding(SAMLConstants.SAML2_POST_BINDING_URI);
         authnRequest.setAssertionConsumerServiceURL(consumerUrl);
         authnRequest.setProviderName(spId);
-        authnRequest.setNameIDPolicy(nameIdPolicy);
+        authnRequest.setIssuer(issuer);
         authnRequest.setRequestedAuthnContext(requestedAuthnContext);
 
         return authnRequest;
