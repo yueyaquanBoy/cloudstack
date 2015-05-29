@@ -38,14 +38,11 @@ import org.apache.cloudstack.api.auth.APIAuthenticationType;
 import org.apache.cloudstack.api.auth.APIAuthenticator;
 import org.apache.cloudstack.api.auth.PluggableAPIAuthenticator;
 import org.apache.cloudstack.api.response.LoginCmdResponse;
-import org.apache.cloudstack.framework.config.dao.ConfigurationDao;
 import org.apache.cloudstack.saml.SAML2AuthManager;
-import org.apache.cloudstack.utils.auth.SAMLUtils;
+import org.apache.cloudstack.saml.SAMLUtils;
 import org.apache.log4j.Logger;
 import org.opensaml.DefaultBootstrap;
 import org.opensaml.saml2.core.Assertion;
-import org.opensaml.saml2.core.Attribute;
-import org.opensaml.saml2.core.AttributeStatement;
 import org.opensaml.saml2.core.AuthnRequest;
 import org.opensaml.saml2.core.EncryptedAssertion;
 import org.opensaml.saml2.core.Response;
@@ -61,6 +58,7 @@ import org.opensaml.xml.security.SecurityHelper;
 import org.opensaml.xml.security.credential.Credential;
 import org.opensaml.xml.security.keyinfo.StaticKeyInfoCredentialResolver;
 import org.opensaml.xml.security.x509.BasicX509Credential;
+import org.opensaml.xml.signature.Signature;
 import org.opensaml.xml.signature.SignatureValidator;
 import org.opensaml.xml.validation.ValidationException;
 import org.xml.sax.SAXException;
@@ -75,7 +73,6 @@ import javax.xml.stream.FactoryConfigurationError;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.security.InvalidKeyException;
-import java.security.KeyPair;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.util.List;
@@ -96,8 +93,6 @@ public class SAML2LoginAPIAuthenticatorCmd extends BaseCmd implements APIAuthent
     ApiServerService _apiServer;
     @Inject
     EntityManager _entityMgr;
-    @Inject
-    ConfigurationDao _configDao;
     @Inject
     DomainManager _domainMgr;
     @Inject
@@ -195,23 +190,8 @@ public class SAML2LoginAPIAuthenticatorCmd extends BaseCmd implements APIAuthent
                             params, responseType));
                 }
 
-                org.opensaml.xml.signature.Signature sig = processedSAMLResponse.getSignature();
-                if (_samlAuthManager.getIdpSigningKey() != null && sig != null) {
-                    BasicX509Credential credential = new BasicX509Credential();
-                    credential.setEntityCertificate(_samlAuthManager.getIdpSigningKey());
-                    SignatureValidator validator = new SignatureValidator(credential);
-                    try {
-                        validator.validate(sig);
-                    } catch (ValidationException e) {
-                        s_logger.error("SAML Response's signature failed to be validated by IDP signing key:" + e.getMessage());
-                        throw new ServerApiException(ApiErrorCode.ACCOUNT_ERROR, _apiServer.getSerializedApiError(ApiErrorCode.ACCOUNT_ERROR.getHttpCode(),
-                                "SAML Response's signature failed to be validated by IDP signing key",
-                                params, responseType));
-                    }
-                }
-
                 String defaultDomainString = SAML2AuthManager.SAMLDefaultDomain.value();
-
+                String username = null;
                 Long domainId = null;
                 Domain domain = _domainMgr.getDomain(defaultDomainString);
                 if (domain != null) {
@@ -226,27 +206,49 @@ public class SAML2LoginAPIAuthenticatorCmd extends BaseCmd implements APIAuthent
                     s_logger.error("The default domain ID for SAML users is not set correct, it should be a UUID. ROOT domain will be used.");
                 }
 
-                KeyPair spKeyPair = _samlAuthManager.getSpKeyPair();
-                Credential credential = SecurityHelper.getSimpleCredential(_samlAuthManager.getIdpEncryptionKey().getPublicKey(), spKeyPair.getPrivate());
-                StaticKeyInfoCredentialResolver keyInfoResolver = new StaticKeyInfoCredentialResolver(credential);
-                EncryptedKeyResolver keyResolver = new InlineEncryptedKeyResolver();
-                Decrypter decrypter = new Decrypter(null, keyInfoResolver, keyResolver);
-                decrypter.setRootInNewDocument(true);
-
-                String username = null;
-                String usernameAttributeName = SAML2AuthManager.SAMLUserAttributeName.value();
-                List<EncryptedAssertion> encryptedAssertions = processedSAMLResponse.getEncryptedAssertions();
-                if (encryptedAssertions != null) {
-                    for (EncryptedAssertion encryptedAssertion : encryptedAssertions) {
-                        try {
-                            Assertion assertion = decrypter.decrypt(encryptedAssertion);
-                            sig = assertion.getSignature();
-                            if (_samlAuthManager.getIdpSigningKey() != null && sig != null) {
+                Signature sig = processedSAMLResponse.getSignature();
+                if (_samlAuthManager.getIdpSigningKey() != null && sig != null) {
+                    BasicX509Credential credential = new BasicX509Credential();
+                    credential.setEntityCertificate(_samlAuthManager.getIdpSigningKey());
+                    SignatureValidator validator = new SignatureValidator(credential);
+                    try {
+                        validator.validate(sig);
+                    } catch (ValidationException e) {
+                        s_logger.error("SAML Response's signature failed to be validated by IDP signing key:" + e.getMessage());
+                        throw new ServerApiException(ApiErrorCode.ACCOUNT_ERROR, _apiServer.getSerializedApiError(ApiErrorCode.ACCOUNT_ERROR.getHttpCode(),
+                                "SAML Response's signature failed to be validated by IDP signing key",
+                                params, responseType));
+                    }
+                }
+                if (username == null) {
+                    username = SAMLUtils.getValueFromAssertions(processedSAMLResponse.getAssertions(), SAML2AuthManager.SAMLUserAttributeName.value());
+                }
+                if (_samlAuthManager.getIdpEncryptionKey() != null && _samlAuthManager.getSpKeyPair() != null &&  _samlAuthManager.getSpKeyPair().getPrivate() != null) {
+                    Credential credential = SecurityHelper.getSimpleCredential(_samlAuthManager.getIdpEncryptionKey().getPublicKey(),
+                            _samlAuthManager.getSpKeyPair().getPrivate());
+                    StaticKeyInfoCredentialResolver keyInfoResolver = new StaticKeyInfoCredentialResolver(credential);
+                    EncryptedKeyResolver keyResolver = new InlineEncryptedKeyResolver();
+                    Decrypter decrypter = new Decrypter(null, keyInfoResolver, keyResolver);
+                    decrypter.setRootInNewDocument(true);
+                    List<EncryptedAssertion> encryptedAssertions = processedSAMLResponse.getEncryptedAssertions();
+                    if (encryptedAssertions != null) {
+                        for (EncryptedAssertion encryptedAssertion : encryptedAssertions) {
+                            Assertion assertion = null;
+                            try {
+                                assertion = decrypter.decrypt(encryptedAssertion);
+                            } catch (DecryptionException e) {
+                                s_logger.warn("SAML EncryptedAssertion error: " + e.toString());
+                            }
+                            if (assertion == null) {
+                                continue;
+                            }
+                            Signature encSig = assertion.getSignature();
+                            if (_samlAuthManager.getIdpSigningKey() != null && encSig != null) {
                                 BasicX509Credential sigCredential = new BasicX509Credential();
                                 sigCredential.setEntityCertificate(_samlAuthManager.getIdpSigningKey());
                                 SignatureValidator validator = new SignatureValidator(sigCredential);
                                 try {
-                                    validator.validate(sig);
+                                    validator.validate(encSig);
                                 } catch (ValidationException e) {
                                     s_logger.error("SAML Response's signature failed to be validated by IDP signing key:" + e.getMessage());
                                     throw new ServerApiException(ApiErrorCode.ACCOUNT_ERROR, _apiServer.getSerializedApiError(ApiErrorCode.ACCOUNT_ERROR.getHttpCode(),
@@ -254,52 +256,17 @@ public class SAML2LoginAPIAuthenticatorCmd extends BaseCmd implements APIAuthent
                                             params, responseType));
                                 }
                             }
-                            List<AttributeStatement> attributeStatements = assertion.getAttributeStatements();
-                            if (attributeStatements != null && attributeStatements.size() > 0) {
-                                for (AttributeStatement attributeStatement : attributeStatements) {
-                                    if (attributeStatement == null) {
-                                        continue;
-                                    }
-                                    if (username != null) {
-                                        break;
-                                    }
-                                    for (Attribute attribute : attributeStatement.getAttributes()) {
-                                        if (usernameAttributeName.equalsIgnoreCase(attribute.getName()) ||
-                                                usernameAttributeName.equalsIgnoreCase(attribute.getFriendlyName())) {
-                                            if (attribute.getAttributeValues().size() > 0) {
-                                                username = attribute.getAttributeValues().get(0).getDOM().getTextContent();
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        } catch (DecryptionException e) {
-                            s_logger.warn("SAML EncryptedAssertion error: " + e.toString());
-                        }
-                    }
-                }
-
-                List<Assertion> assertions = processedSAMLResponse.getAssertions();
-                if (assertions != null) {
-                    for (Assertion assertion : assertions) {
-                        List<AttributeStatement> attributeStatements = assertion.getAttributeStatements();
-                        if (attributeStatements != null && attributeStatements.size() > 0) {
-                            for (AttributeStatement attributeStatement : attributeStatements) {
-                                if (attributeStatement == null) {
-                                    continue;
-                                }
-                                for (Attribute attribute : attributeStatement.getAttributes()) {
-                                    String attributeName = attribute.getName();
-                                    String attributeValue = attribute.getAttributeValues().get(0).getDOM().getTextContent();
-                                    if (attributeName.equalsIgnoreCase(SAML2AuthManager.SAMLUserAttributeName.value()) && username == null) {
-                                        username = attributeValue;
-                                    }
-                                }
+                            if (username == null) {
+                                username = SAMLUtils.getValueFromAttributeStatements(assertion.getAttributeStatements(), SAML2AuthManager.SAMLUserAttributeName.value());
                             }
                         }
                     }
                 }
 
+                if (username == null) {
+                    throw new ServerApiException(ApiErrorCode.ACCOUNT_ERROR, _apiServer.getSerializedApiError(ApiErrorCode.ACCOUNT_ERROR.getHttpCode(),
+                            "Failed to find admin configured username attribute in the SAML Response. Please ask your administrator to check SAML user attribute name.", params, responseType));
+                }
                 List<UserAccountVO> userAccounts = _userAccountDao.getAllUsersByName(username);
                 UserAccount userAccount = null;
                 if (userAccounts != null && userAccounts.size() > 0) {

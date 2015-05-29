@@ -26,7 +26,6 @@ import org.apache.cloudstack.framework.config.Configurable;
 import org.apache.cloudstack.framework.config.dao.ConfigurationDao;
 import org.apache.cloudstack.framework.security.keystore.KeystoreDao;
 import org.apache.cloudstack.framework.security.keystore.KeystoreVO;
-import org.apache.cloudstack.utils.auth.SAMLUtils;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.log4j.Logger;
 import org.opensaml.DefaultBootstrap;

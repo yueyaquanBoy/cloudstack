@@ -29,7 +29,7 @@ import org.apache.cloudstack.api.auth.PluggableAPIAuthenticator;
 import org.apache.cloudstack.api.response.LogoutCmdResponse;
 import org.apache.cloudstack.framework.config.dao.ConfigurationDao;
 import org.apache.cloudstack.saml.SAML2AuthManager;
-import org.apache.cloudstack.utils.auth.SAMLUtils;
+import org.apache.cloudstack.saml.SAMLUtils;
 import org.apache.log4j.Logger;
 import org.opensaml.DefaultBootstrap;
 import org.opensaml.saml2.core.LogoutRequest;

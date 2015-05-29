@@ -17,9 +17,10 @@
 // under the License.
 //
 
-package org.apache.cloudstack.utils.auth;
+package org.apache.cloudstack;
 
 import junit.framework.TestCase;
+import org.apache.cloudstack.saml.SAMLUtils;
 import org.junit.Test;
 import org.opensaml.saml2.core.AuthnRequest;
 import org.opensaml.saml2.core.LogoutRequest;
@@ -31,18 +32,6 @@ import java.security.PrivateKey;
 import java.security.PublicKey;
 
 public class SAMLUtilsTest extends TestCase {
-
-    @Test
-    public void testSAMLId() throws Exception {
-        assertEquals(SAMLUtils.createSAMLId(null), null);
-        assertEquals(SAMLUtils.createSAMLId("someUserName"), "SAML-305e19dd2581f33fd90b3949298ec8b17de");
-
-        assertTrue(SAMLUtils.checkSAMLUser(SAMLUtils.createSAMLId("someUserName"), "someUserName"));
-        assertFalse(SAMLUtils.checkSAMLUser(SAMLUtils.createSAMLId("someUserName"), "someOtherUserName"));
-        assertFalse(SAMLUtils.checkSAMLUser(SAMLUtils.createSAMLId(null), "someOtherUserName"));
-        assertFalse(SAMLUtils.checkSAMLUser("randomUID", "randomUID"));
-        assertFalse(SAMLUtils.checkSAMLUser(null, null));
-    }
 
     @Test
     public void testGenerateSecureRandomId() throws Exception {

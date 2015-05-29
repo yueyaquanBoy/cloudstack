@@ -21,7 +21,6 @@ import com.cloud.user.UserAccount;
 import com.cloud.user.dao.UserAccountDao;
 import com.cloud.user.dao.UserDao;
 import com.cloud.utils.Pair;
-import org.apache.cloudstack.utils.auth.SAMLUtils;
 import org.apache.cxf.common.util.StringUtils;
 import org.apache.log4j.Logger;
 import org.opensaml.DefaultBootstrap;

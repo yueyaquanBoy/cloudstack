@@ -17,13 +17,14 @@
  * under the License.
  */
 
-package org.apache.cloudstack.api.command;
+package org.apache.cloudstack;
 
 import com.cloud.utils.HttpUtils;
 import org.apache.cloudstack.api.ApiServerService;
 import org.apache.cloudstack.api.auth.APIAuthenticationType;
+import org.apache.cloudstack.api.command.GetServiceProviderMetaDataCmd;
 import org.apache.cloudstack.saml.SAML2AuthManager;
-import org.apache.cloudstack.utils.auth.SAMLUtils;
+import org.apache.cloudstack.saml.SAMLUtils;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;

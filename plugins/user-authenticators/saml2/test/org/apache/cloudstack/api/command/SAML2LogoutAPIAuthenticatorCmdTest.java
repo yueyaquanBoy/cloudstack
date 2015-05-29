@@ -24,7 +24,7 @@ import org.apache.cloudstack.api.ApiServerService;
 import org.apache.cloudstack.api.auth.APIAuthenticationType;
 import org.apache.cloudstack.framework.config.dao.ConfigurationDao;
 import org.apache.cloudstack.saml.SAML2AuthManager;
-import org.apache.cloudstack.utils.auth.SAMLUtils;
+import org.apache.cloudstack.saml.SAMLUtils;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;

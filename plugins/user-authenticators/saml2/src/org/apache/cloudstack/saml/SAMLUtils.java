@@ -17,10 +17,9 @@
 // under the License.
 //
 
-package org.apache.cloudstack.utils.auth;
+package org.apache.cloudstack.saml;
 
 import com.cloud.utils.HttpUtils;
-import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.log4j.Logger;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.x509.X509V1CertificateGenerator;
@@ -29,6 +28,10 @@ import org.joda.time.DateTimeZone;
 import org.opensaml.Configuration;
 import org.opensaml.common.SAMLVersion;
 import org.opensaml.common.xml.SAMLConstants;
+import org.opensaml.saml2.core.Assertion;
+import org.opensaml.saml2.core.Attribute;
+import org.opensaml.saml2.core.AttributeStatement;
+import org.opensaml.saml2.core.AuthnContext;
 import org.opensaml.saml2.core.AuthnContextClassRef;
 import org.opensaml.saml2.core.AuthnContextComparisonTypeEnumeration;
 import org.opensaml.saml2.core.AuthnRequest;
@@ -87,6 +90,7 @@ import java.security.cert.X509Certificate;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
+import java.util.List;
 import java.util.zip.Deflater;
 import java.util.zip.DeflaterOutputStream;
 
@@ -94,30 +98,46 @@ public class SAMLUtils {
     public static final Logger s_logger = Logger.getLogger(SAMLUtils.class);
 
     public static final String SAML_RESPONSE = "SAMLResponse";
-    public static final String SAML_NS = "SAML-";
     public static final String SAML_NAMEID = "SAML_NAMEID";
     public static final String SAML_SESSION = "SAML_SESSION";
     public static final String SAMLSP_KEYPAIR = "SAMLSP_KEYPAIR";
     public static final String SAMLSP_X509CERT = "SAMLSP_X509CERT";
 
-    public static String createSAMLId(String uid) {
-        if (uid == null)  {
-            return null;
-        }
-        String hash = DigestUtils.sha256Hex(uid);
-        String samlUuid = SAML_NS + hash;
-        return samlUuid.substring(0, 40);
-    }
-
-    public static boolean checkSAMLUser(String uuid, String username) {
-        if (uuid == null || uuid.isEmpty() || username == null || username.isEmpty()) {
-            return false;
-        }
-        return uuid.startsWith(SAML_NS) && createSAMLId(username).equals(uuid);
-    }
-
     public static String generateSecureRandomId() {
         return new BigInteger(160, new SecureRandom()).toString(32);
+    }
+
+    public static String getValueFromAttributeStatements(final List<AttributeStatement> attributeStatements, final String attributeKey) {
+        if (attributeStatements == null || attributeStatements.size() < 1 || attributeKey == null) {
+            return null;
+        }
+        for (AttributeStatement attributeStatement : attributeStatements) {
+            if (attributeStatement == null || attributeStatements.size() < 1) {
+                continue;
+            }
+            for (Attribute attribute : attributeStatement.getAttributes()) {
+                if ((attributeKey.equals(attribute.getName())
+                        || attributeKey.equals(attribute.getFriendlyName()))
+                        && attribute.getAttributeValues() != null
+                        && attribute.getAttributeValues().size() > 0) {
+                    return attribute.getAttributeValues().get(0).getDOM().getTextContent();
+                }
+            }
+        }
+        return null;
+    }
+
+    public static String getValueFromAssertions(final List<Assertion> assertions, final String attributeKey) {
+        if (assertions == null || attributeKey == null) {
+            return null;
+        }
+        for (Assertion assertion : assertions) {
+            String value = getValueFromAttributeStatements(assertion.getAttributeStatements(), attributeKey);
+            if (value != null) {
+                return value;
+            }
+        }
+        return null;
     }
 
     public static AuthnRequest buildAuthnRequestObject(String spId, String idpUrl, String consumerUrl) {
@@ -132,15 +152,13 @@ public class SAMLUtils {
         AuthnContextClassRef authnContextClassRef = authnContextClassRefBuilder.buildObject(
                 SAMLConstants.SAML20_NS,
                 "AuthnContextClassRef", "saml");
-        authnContextClassRef.setAuthnContextClassRef("urn:oasis:names:tc:SAML:2.0:ac:classes:PasswordProtectedTransport");
+        authnContextClassRef.setAuthnContextClassRef(AuthnContext.PPT_AUTHN_CTX);
 
-        // AuthnContex
+        // AuthnContext
         RequestedAuthnContextBuilder requestedAuthnContextBuilder = new RequestedAuthnContextBuilder();
         RequestedAuthnContext requestedAuthnContext = requestedAuthnContextBuilder.buildObject();
-        requestedAuthnContext
-                .setComparison(AuthnContextComparisonTypeEnumeration.EXACT);
-        requestedAuthnContext.getAuthnContextClassRefs().add(
-                authnContextClassRef);
+        requestedAuthnContext.setComparison(AuthnContextComparisonTypeEnumeration.EXACT);
+        requestedAuthnContext.getAuthnContextClassRefs().add(authnContextClassRef);
 
         // Creation of AuthRequestObject
         AuthnRequestBuilder authRequestBuilder = new AuthnRequestBuilder();
