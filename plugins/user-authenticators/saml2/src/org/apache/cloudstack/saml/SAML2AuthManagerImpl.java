@@ -148,7 +148,7 @@ public class SAML2AuthManagerImpl extends AdapterBase implements SAML2AuthManage
         }
 
         this.serviceProviderId = SAMLServiceProviderID.value();
-        this.identityProviderId = "https://openidp.feide.no"; // FIXME: SAMLIdentityProviderID.key();
+        this.identityProviderId = SAMLIdentityProviderId.value();
 
         this.spSingleSignOnUrl = SAMLServiceProviderSingleSignOnURL.value();
         this.spSingleLogOutUrl = SAMLServiceProviderSingleLogOutURL.value();
@@ -181,6 +181,7 @@ public class SAML2AuthManagerImpl extends AdapterBase implements SAML2AuthManage
                     }
                 }
 
+                X509Certificate unspecifiedKey = null;
                 for (KeyDescriptor kd: idpssoDescriptor.getKeyDescriptors()) {
                     if (kd.getUse() == UsageType.SIGNING) {
                         try {
@@ -194,6 +195,18 @@ public class SAML2AuthManagerImpl extends AdapterBase implements SAML2AuthManage
                         } catch (CertificateException ignored) {
                         }
                     }
+                    if (kd.getUse() == UsageType.UNSPECIFIED) {
+                        try {
+                            unspecifiedKey = KeyInfoHelper.getCertificates(kd.getKeyInfo()).get(0);
+                        } catch (CertificateException ignored) {
+                        }
+                    }
+                }
+                if (idpSigningKey == null && unspecifiedKey != null) {
+                    idpSigningKey = unspecifiedKey;
+                }
+                if (idpEncryptionKey == null && unspecifiedKey != null) {
+                    idpEncryptionKey = unspecifiedKey;
                 }
             } else {
                 s_logger.warn("Provided IDP XML Metadata does not contain IDPSSODescriptor, SAML authentication may not work");
@@ -281,6 +294,6 @@ public class SAML2AuthManagerImpl extends AdapterBase implements SAML2AuthManage
     public ConfigKey<?>[] getConfigKeys() {
         return new ConfigKey<?>[]{SAMLIsPluginEnabled, SAMLUserAttributeName, SAMLCloudStackRedirectionUrl,
                 SAMLServiceProviderSingleSignOnURL, SAMLServiceProviderSingleLogOutURL,
-                SAMLServiceProviderID, SAMLIdentityProviderMetadataURL, SAMLTimeout};
+                SAMLServiceProviderID, SAMLIdentityProviderMetadataURL, SAMLIdentityProviderId, SAMLTimeout};
     }
 }

@@ -49,6 +49,9 @@ public interface SAML2AuthManager extends PluggableAPIAuthenticator {
     public static final ConfigKey<String> SAMLIdentityProviderMetadataURL = new ConfigKey<String>("Advanced", String.class, "saml2.idp.metadata.url", "https://openidp.feide.no/simplesaml/saml2/idp/metadata.php",
             "SAML2 Identity Provider Metadata XML Url", true);
 
+    public static final ConfigKey<String> SAMLIdentityProviderId = new ConfigKey<String>("Advanced", String.class, "saml2.idp.id", "https://openidp.feide.no",
+            "SAML2 Identity Provider Metadata XML Url", true);
+
     public static final ConfigKey<Integer> SAMLTimeout = new ConfigKey<Integer>("Advanced", Integer.class, "saml2.timeout", "30000",
             "SAML2 IDP Metadata Downloading and parsing etc. activity timeout in milliseconds", true);
 
