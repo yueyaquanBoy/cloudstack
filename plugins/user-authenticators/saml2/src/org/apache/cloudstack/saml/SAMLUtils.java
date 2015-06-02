@@ -116,11 +116,12 @@ public class SAMLUtils {
                 continue;
             }
             for (Attribute attribute : attributeStatement.getAttributes()) {
-                if ((attributeKey.equals(attribute.getName())
-                        || attributeKey.equals(attribute.getFriendlyName()))
-                        && attribute.getAttributeValues() != null
-                        && attribute.getAttributeValues().size() > 0) {
-                    return attribute.getAttributeValues().get(0).getDOM().getTextContent();
+                if (attribute.getAttributeValues() != null && attribute.getAttributeValues().size() > 0) {
+                    String value = attribute.getAttributeValues().get(0).getDOM().getTextContent();
+                    s_logger.debug("SAML attribute name: " + attribute.getName() + " friendly-name:" + attribute.getFriendlyName() + " value:" + value);
+                    if (attributeKey.equals(attribute.getName()) || attributeKey.equals(attribute.getFriendlyName())) {
+                        return value;
+                    }
                 }
             }
         }
