@@ -26,6 +26,7 @@ import org.bouncycastle.x509.X509V1CertificateGenerator;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.opensaml.Configuration;
+import org.opensaml.DefaultBootstrap;
 import org.opensaml.common.SAMLVersion;
 import org.opensaml.common.xml.SAMLConstants;
 import org.opensaml.saml2.core.Assertion;
@@ -37,17 +38,13 @@ import org.opensaml.saml2.core.AuthnContextComparisonTypeEnumeration;
 import org.opensaml.saml2.core.AuthnRequest;
 import org.opensaml.saml2.core.Issuer;
 import org.opensaml.saml2.core.LogoutRequest;
-import org.opensaml.saml2.core.NameID;
 import org.opensaml.saml2.core.RequestedAuthnContext;
 import org.opensaml.saml2.core.Response;
-import org.opensaml.saml2.core.SessionIndex;
 import org.opensaml.saml2.core.impl.AuthnContextClassRefBuilder;
 import org.opensaml.saml2.core.impl.AuthnRequestBuilder;
 import org.opensaml.saml2.core.impl.IssuerBuilder;
 import org.opensaml.saml2.core.impl.LogoutRequestBuilder;
-import org.opensaml.saml2.core.impl.NameIDBuilder;
 import org.opensaml.saml2.core.impl.RequestedAuthnContextBuilder;
-import org.opensaml.saml2.core.impl.SessionIndexBuilder;
 import org.opensaml.xml.ConfigurationException;
 import org.opensaml.xml.XMLObject;
 import org.opensaml.xml.io.Marshaller;
@@ -66,6 +63,7 @@ import javax.security.auth.x500.X500Principal;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.stream.FactoryConfigurationError;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -96,12 +94,6 @@ import java.util.zip.DeflaterOutputStream;
 
 public class SAMLUtils {
     public static final Logger s_logger = Logger.getLogger(SAMLUtils.class);
-
-    public static final String SAML_RESPONSE = "SAMLResponse";
-    public static final String SAML_NAMEID = "SAML_NAMEID";
-    public static final String SAML_SESSION = "SAML_SESSION";
-    public static final String SAMLSP_KEYPAIR = "SAMLSP_KEYPAIR";
-    public static final String SAMLSP_X509CERT = "SAMLSP_X509CERT";
 
     public static String generateSecureRandomId() {
         return new BigInteger(160, new SecureRandom()).toString(32);
@@ -139,6 +131,22 @@ public class SAMLUtils {
             }
         }
         return null;
+    }
+
+    public static String buildAuthnRequestUrl(SAMLProviderMetadata spMetadata, SAMLProviderMetadata idpMetadata) {
+        String redirectUrl = "";
+        try {
+            DefaultBootstrap.bootstrap();
+            AuthnRequest authnRequest = SAMLUtils.buildAuthnRequestObject(spMetadata.getEntityId(), idpMetadata.getSsoUrl(), spMetadata.getSsoUrl());
+            PrivateKey privateKey = null;
+            if (spMetadata.getKeyPair() != null) {
+                privateKey = spMetadata.getKeyPair().getPrivate();
+            }
+            redirectUrl = idpMetadata.getSsoUrl() + "?" + SAMLUtils.generateSAMLRequestSignature("SAMLRequest=" + SAMLUtils.encodeSAMLRequest(authnRequest), privateKey);
+        } catch (ConfigurationException | FactoryConfigurationError | MarshallingException | IOException | NoSuchAlgorithmException | InvalidKeyException | java.security.SignatureException e) {
+            s_logger.error("SAML AuthnRequest message building error: " + e.getMessage());
+        }
+        return redirectUrl;
     }
 
     public static AuthnRequest buildAuthnRequestObject(String spId, String idpUrl, String consumerUrl) {
@@ -179,17 +187,10 @@ public class SAMLUtils {
         return authnRequest;
     }
 
-    public static LogoutRequest buildLogoutRequest(String logoutUrl, String spId, NameID sessionNameId, String sessionIndex) {
+    public static LogoutRequest buildLogoutRequest(String logoutUrl, String spId) {
         IssuerBuilder issuerBuilder = new IssuerBuilder();
         Issuer issuer = issuerBuilder.buildObject();
         issuer.setValue(spId);
-
-        SessionIndex sessionIndexElement = new SessionIndexBuilder().buildObject();
-        sessionIndexElement.setSessionIndex(sessionIndex);
-
-        NameID nameID = new NameIDBuilder().buildObject();
-        nameID.setValue(sessionNameId.getValue());
-        nameID.setFormat(sessionNameId.getFormat());
 
         LogoutRequest logoutRequest = new LogoutRequestBuilder().buildObject();
         logoutRequest.setID(generateSecureRandomId());
@@ -197,8 +198,6 @@ public class SAMLUtils {
         logoutRequest.setVersion(SAMLVersion.VERSION_20);
         logoutRequest.setIssueInstant(new DateTime());
         logoutRequest.setIssuer(issuer);
-        logoutRequest.getSessionIndexes().add(sessionIndexElement);
-        logoutRequest.setNameID(nameID);
         return logoutRequest;
     }
 

@@ -369,7 +369,7 @@ body.login {
 .login .select-language select {
   width: 260px;
   border: 1px solid #808080;
-  margin-top: 30px;
+  margin-top: 20px;
   /*+border-radius:4px;*/
   -moz-border-radius: 4px;
   -webkit-border-radius: 4px;

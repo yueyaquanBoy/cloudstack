@@ -29,7 +29,6 @@ import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.runners.MockitoJUnitRunner;
 
 import javax.servlet.http.HttpServletRequest;
@@ -77,19 +76,9 @@ public class GetServiceProviderMetaDataCmdTest {
         String spId = "someSPID";
         String url = "someUrl";
         X509Certificate cert = SAMLUtils.generateRandomX509Certificate(SAMLUtils.generateRandomKeyPair());
-        Mockito.when(samlAuthManager.getServiceProviderId()).thenReturn(spId);
-        Mockito.when(samlAuthManager.getIdpSigningKey()).thenReturn(cert);
-        Mockito.when(samlAuthManager.getIdpSingleLogOutUrl()).thenReturn(url);
-        Mockito.when(samlAuthManager.getSpSingleLogOutUrl()).thenReturn(url);
 
         String result = cmd.authenticate("command", null, session, "random", HttpUtils.RESPONSE_TYPE_JSON, new StringBuilder(), req, resp);
         Assert.assertTrue(result.contains("md:EntityDescriptor"));
-
-        Mockito.verify(samlAuthManager, Mockito.atLeast(1)).getServiceProviderId();
-        Mockito.verify(samlAuthManager, Mockito.atLeast(1)).getSpSingleSignOnUrl();
-        Mockito.verify(samlAuthManager, Mockito.atLeast(1)).getSpSingleLogOutUrl();
-        Mockito.verify(samlAuthManager, Mockito.never()).getIdpSingleSignOnUrl();
-        Mockito.verify(samlAuthManager, Mockito.never()).getIdpSingleLogOutUrl();
     }
 
     @Test

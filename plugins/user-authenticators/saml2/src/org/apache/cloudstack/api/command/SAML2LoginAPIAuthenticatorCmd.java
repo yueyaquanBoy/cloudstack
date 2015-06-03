@@ -39,12 +39,14 @@ import org.apache.cloudstack.api.auth.APIAuthenticator;
 import org.apache.cloudstack.api.auth.PluggableAPIAuthenticator;
 import org.apache.cloudstack.api.response.LoginCmdResponse;
 import org.apache.cloudstack.saml.SAML2AuthManager;
+import org.apache.cloudstack.saml.SAMLPluginConstants;
+import org.apache.cloudstack.saml.SAMLProviderMetadata;
 import org.apache.cloudstack.saml.SAMLUtils;
 import org.apache.log4j.Logger;
 import org.opensaml.DefaultBootstrap;
 import org.opensaml.saml2.core.Assertion;
-import org.opensaml.saml2.core.AuthnRequest;
 import org.opensaml.saml2.core.EncryptedAssertion;
+import org.opensaml.saml2.core.Issuer;
 import org.opensaml.saml2.core.Response;
 import org.opensaml.saml2.core.StatusCode;
 import org.opensaml.saml2.encryption.Decrypter;
@@ -52,7 +54,6 @@ import org.opensaml.xml.ConfigurationException;
 import org.opensaml.xml.encryption.DecryptionException;
 import org.opensaml.xml.encryption.EncryptedKeyResolver;
 import org.opensaml.xml.encryption.InlineEncryptedKeyResolver;
-import org.opensaml.xml.io.MarshallingException;
 import org.opensaml.xml.io.UnmarshallingException;
 import org.opensaml.xml.security.SecurityHelper;
 import org.opensaml.xml.security.credential.Credential;
@@ -72,9 +73,6 @@ import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.stream.FactoryConfigurationError;
 import java.io.IOException;
 import java.net.URLEncoder;
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
-import java.security.PrivateKey;
 import java.util.List;
 import java.util.Map;
 
@@ -86,8 +84,8 @@ public class SAML2LoginAPIAuthenticatorCmd extends BaseCmd implements APIAuthent
     /////////////////////////////////////////////////////
     //////////////// API parameters /////////////////////
     /////////////////////////////////////////////////////
-    @Parameter(name = ApiConstants.IDP_URL, type = CommandType.STRING, description = "Identity Provider SSO HTTP-Redirect binding URL", required = true)
-    private String idpUrl;
+    @Parameter(name = ApiConstants.IDP_ID, type = CommandType.STRING, description = "Identity Provider Entity ID", required = true)
+    private String idpId;
 
     @Inject
     ApiServerService _apiServer;
@@ -104,8 +102,8 @@ public class SAML2LoginAPIAuthenticatorCmd extends BaseCmd implements APIAuthent
     /////////////////// Accessors ///////////////////////
     /////////////////////////////////////////////////////
 
-    public String getIdpUrl() {
-        return idpUrl;
+    public String getIdpId() {
+        return idpId;
     }
 
     /////////////////////////////////////////////////////
@@ -128,30 +126,6 @@ public class SAML2LoginAPIAuthenticatorCmd extends BaseCmd implements APIAuthent
         throw new ServerApiException(ApiErrorCode.METHOD_NOT_ALLOWED, "This is an authentication api, cannot be used directly");
     }
 
-    private String buildAuthnRequestUrl(String idpUrl) {
-        String spId = _samlAuthManager.getServiceProviderId();
-        String consumerUrl = _samlAuthManager.getSpSingleSignOnUrl();
-        String identityProviderUrl = _samlAuthManager.getIdpSingleSignOnUrl();
-
-        if (idpUrl != null) {
-            identityProviderUrl = idpUrl;
-        }
-
-        String redirectUrl = "";
-        try {
-            DefaultBootstrap.bootstrap();
-            AuthnRequest authnRequest = SAMLUtils.buildAuthnRequestObject(spId, identityProviderUrl, consumerUrl);
-            PrivateKey privateKey = null;
-            if (_samlAuthManager.getSpKeyPair() != null) {
-                privateKey = _samlAuthManager.getSpKeyPair().getPrivate();
-            }
-            redirectUrl = identityProviderUrl + "?" + SAMLUtils.generateSAMLRequestSignature("SAMLRequest=" + SAMLUtils.encodeSAMLRequest(authnRequest), privateKey);
-        } catch (ConfigurationException | FactoryConfigurationError | MarshallingException | IOException | NoSuchAlgorithmException | InvalidKeyException | java.security.SignatureException e) {
-            s_logger.error("SAML AuthnRequest message building error: " + e.getMessage());
-        }
-        return redirectUrl;
-    }
-
     public Response processSAMLResponse(String responseMessage) {
         Response responseObject = null;
         try {
@@ -168,12 +142,19 @@ public class SAML2LoginAPIAuthenticatorCmd extends BaseCmd implements APIAuthent
     public String authenticate(final String command, final Map<String, Object[]> params, final HttpSession session, final String remoteAddress, final String responseType, final StringBuilder auditTrailSb, final HttpServletRequest req, final HttpServletResponse resp) throws ServerApiException {
         try {
             if (!params.containsKey("SAMLResponse") && !params.containsKey("SAMLart")) {
-                String idpUrl = null;
-                final String[] idps = (String[])params.get(ApiConstants.IDP_URL);
+                String idpId = null;
+                final String[] idps = (String[])params.get(ApiConstants.IDP_ID);
                 if (idps != null && idps.length > 0) {
-                    idpUrl = idps[0];
+                    idpId = idps[0];
                 }
-                String redirectUrl = this.buildAuthnRequestUrl(idpUrl);
+                SAMLProviderMetadata spMetadata = _samlAuthManager.getSPMetadata();
+                SAMLProviderMetadata idpMetadata = _samlAuthManager.getIdPMetadata(idpId);
+                if (idpMetadata == null) {
+                    throw new ServerApiException(ApiErrorCode.PARAM_ERROR, _apiServer.getSerializedApiError(ApiErrorCode.PARAM_ERROR.getHttpCode(),
+                            "IdP ID (" + idpId + ") is not found in our list of supported IdPs, cannot proceed.",
+                            params, responseType));
+                }
+                String redirectUrl = SAMLUtils.buildAuthnRequestUrl(spMetadata, idpMetadata);
                 resp.sendRedirect(redirectUrl);
                 return "";
             } if (params.containsKey("SAMLart")) {
@@ -181,7 +162,7 @@ public class SAML2LoginAPIAuthenticatorCmd extends BaseCmd implements APIAuthent
                         "SAML2 HTTP Artifact Binding is not supported",
                         params, responseType));
             } else {
-                final String samlResponse = ((String[])params.get(SAMLUtils.SAML_RESPONSE))[0];
+                final String samlResponse = ((String[])params.get(SAMLPluginConstants.SAML_RESPONSE))[0];
                 Response processedSAMLResponse = this.processSAMLResponse(samlResponse);
                 String statusCode = processedSAMLResponse.getStatus().getStatusCode().getValue();
                 if (!statusCode.equals(StatusCode.SUCCESS_URI)) {
@@ -206,10 +187,17 @@ public class SAML2LoginAPIAuthenticatorCmd extends BaseCmd implements APIAuthent
                     s_logger.error("The default domain ID for SAML users is not set correct, it should be a UUID. ROOT domain will be used.");
                 }
 
+                Issuer issuer = processedSAMLResponse.getIssuer();
+                SAMLProviderMetadata spMetadata = _samlAuthManager.getSPMetadata();
+                SAMLProviderMetadata idpMetadata = _samlAuthManager.getIdPMetadata(issuer.getValue());
+
+                // Set IdpId for this session
+                session.setAttribute(SAMLPluginConstants.SAML_IDPID, issuer.getValue());
+
                 Signature sig = processedSAMLResponse.getSignature();
-                if (_samlAuthManager.getIdpSigningKey() != null && sig != null) {
+                if (idpMetadata.getSigningCertificate() != null && sig != null) {
                     BasicX509Credential credential = new BasicX509Credential();
-                    credential.setEntityCertificate(_samlAuthManager.getIdpSigningKey());
+                    credential.setEntityCertificate(idpMetadata.getSigningCertificate());
                     SignatureValidator validator = new SignatureValidator(credential);
                     try {
                         validator.validate(sig);
@@ -223,9 +211,10 @@ public class SAML2LoginAPIAuthenticatorCmd extends BaseCmd implements APIAuthent
                 if (username == null) {
                     username = SAMLUtils.getValueFromAssertions(processedSAMLResponse.getAssertions(), SAML2AuthManager.SAMLUserAttributeName.value());
                 }
-                if (_samlAuthManager.getIdpEncryptionKey() != null && _samlAuthManager.getSpKeyPair() != null &&  _samlAuthManager.getSpKeyPair().getPrivate() != null) {
-                    Credential credential = SecurityHelper.getSimpleCredential(_samlAuthManager.getIdpEncryptionKey().getPublicKey(),
-                            _samlAuthManager.getSpKeyPair().getPrivate());
+                if (idpMetadata.getEncryptionCertificate() != null && spMetadata != null
+                        && spMetadata.getKeyPair() != null && spMetadata.getKeyPair().getPrivate() != null) {
+                    Credential credential = SecurityHelper.getSimpleCredential(idpMetadata.getEncryptionCertificate().getPublicKey(),
+                            spMetadata.getKeyPair().getPrivate());
                     StaticKeyInfoCredentialResolver keyInfoResolver = new StaticKeyInfoCredentialResolver(credential);
                     EncryptedKeyResolver keyResolver = new InlineEncryptedKeyResolver();
                     Decrypter decrypter = new Decrypter(null, keyInfoResolver, keyResolver);
@@ -243,9 +232,9 @@ public class SAML2LoginAPIAuthenticatorCmd extends BaseCmd implements APIAuthent
                                 continue;
                             }
                             Signature encSig = assertion.getSignature();
-                            if (_samlAuthManager.getIdpSigningKey() != null && encSig != null) {
+                            if (idpMetadata.getSigningCertificate() != null && encSig != null) {
                                 BasicX509Credential sigCredential = new BasicX509Credential();
-                                sigCredential.setEntityCertificate(_samlAuthManager.getIdpSigningKey());
+                                sigCredential.setEntityCertificate(idpMetadata.getSigningCertificate());
                                 SignatureValidator validator = new SignatureValidator(sigCredential);
                                 try {
                                     validator.validate(encSig);

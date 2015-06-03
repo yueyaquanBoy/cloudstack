@@ -63,8 +63,8 @@ public class SAML2UserAuthenticator extends DefaultUserAuthenticator {
             return new Pair<Boolean, ActionOnFailedAuthentication>(false, null);
         } else {
             User user = _userDao.getUser(userAccount.getId());
-            if (user != null && requestParameters != null && requestParameters.containsKey(SAMLUtils.SAML_RESPONSE)) {
-                final String samlResponse = ((String[])requestParameters.get(SAMLUtils.SAML_RESPONSE))[0];
+            if (user != null && requestParameters != null && requestParameters.containsKey(SAMLPluginConstants.SAML_RESPONSE)) {
+                final String samlResponse = ((String[])requestParameters.get(SAMLPluginConstants.SAML_RESPONSE))[0];
                 Response responseObject = null;
                 try {
                     DefaultBootstrap.bootstrap();

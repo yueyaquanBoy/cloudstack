@@ -24,8 +24,6 @@ import org.apache.cloudstack.saml.SAMLUtils;
 import org.junit.Test;
 import org.opensaml.saml2.core.AuthnRequest;
 import org.opensaml.saml2.core.LogoutRequest;
-import org.opensaml.saml2.core.NameID;
-import org.opensaml.saml2.core.impl.NameIDBuilder;
 
 import java.security.KeyPair;
 import java.security.PrivateKey;
@@ -54,13 +52,9 @@ public class SAMLUtilsTest extends TestCase {
         String logoutUrl = "http://logoutUrl";
         String spId = "cloudstack";
         String sessionIndex = "12345";
-        String nameIdString = "someNameID";
-        NameID sessionNameId = new NameIDBuilder().buildObject();
-        sessionNameId.setValue(nameIdString);
-        LogoutRequest req = SAMLUtils.buildLogoutRequest(logoutUrl, spId, sessionNameId,  sessionIndex);
+        LogoutRequest req = SAMLUtils.buildLogoutRequest(logoutUrl, spId);
         assertEquals(req.getDestination(), logoutUrl);
         assertEquals(req.getIssuer().getValue(), spId);
-        assertEquals(req.getNameID().getValue(), nameIdString);
         assertEquals(req.getSessionIndexes().get(0).getSessionIndex(), sessionIndex);
     }
 

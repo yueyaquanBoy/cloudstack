@@ -30,6 +30,7 @@ import org.apache.cloudstack.api.BaseCmd;
 import org.apache.cloudstack.api.ServerApiException;
 import org.apache.cloudstack.api.auth.APIAuthenticationType;
 import org.apache.cloudstack.saml.SAML2AuthManager;
+import org.apache.cloudstack.saml.SAMLPluginConstants;
 import org.apache.cloudstack.saml.SAMLUtils;
 import org.joda.time.DateTime;
 import org.junit.Assert;
@@ -148,10 +149,6 @@ public class SAML2LoginAPIAuthenticatorCmdTest {
         String spId = "someSPID";
         String url = "someUrl";
         X509Certificate cert = SAMLUtils.generateRandomX509Certificate(SAMLUtils.generateRandomKeyPair());
-        Mockito.when(samlAuthManager.getServiceProviderId()).thenReturn(spId);
-        Mockito.when(samlAuthManager.getIdpSigningKey()).thenReturn(null);
-        Mockito.when(samlAuthManager.getIdpSingleSignOnUrl()).thenReturn(url);
-        Mockito.when(samlAuthManager.getSpSingleSignOnUrl()).thenReturn(url);
 
         Mockito.when(session.getAttribute(Mockito.anyString())).thenReturn(null);
 
@@ -169,7 +166,7 @@ public class SAML2LoginAPIAuthenticatorCmdTest {
         Mockito.verify(resp, Mockito.times(1)).sendRedirect(Mockito.anyString());
 
         // SSO SAMLResponse verification test, this should throw ServerApiException for auth failure
-        params.put(SAMLUtils.SAML_RESPONSE, new String[]{"Some String"});
+        params.put(SAMLPluginConstants.SAML_RESPONSE, new String[]{"Some String"});
         Mockito.stub(cmd.processSAMLResponse(Mockito.anyString())).toReturn(buildMockResponse());
         try {
             cmd.authenticate("command", params, session, "random", HttpUtils.RESPONSE_TYPE_JSON, new StringBuilder(), req, resp);
