@@ -68,7 +68,12 @@
                         </div>
                         <!-- Submit (login) -->
                         <input type="submit" value="<fmt:message key="label.login"/>" />
-                        <div id="saml-login"><input type="samlsubmit" value="<fmt:message key="label.saml.login"/>"/></div>
+                        <div id="saml-login">
+                            <select id="saml-idps" style="margin-top: 20px">
+                                <option value=""></option> <!-- when this blank option is selected, default IdP will be used -->
+                            </select>
+                            <input type="samlsubmit" value="<fmt:message key="label.saml.login"/>"/>
+                        </div>
                         <!-- Select language -->
                         <div class="select-language">
                             <select name="language">

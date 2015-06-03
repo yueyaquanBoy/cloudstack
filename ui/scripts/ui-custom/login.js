@@ -123,6 +123,7 @@
         // SAML Login action
         $login.find('input[type=samlsubmit]').click(function() {
             args.samlLoginAction({
+                data: {'idpid': $login.find('#saml-idps').find(':selected').val()}
             });
         });
 
@@ -130,7 +131,7 @@
         $login.find("#saml-login").hide();
         $.ajax({
             type: "GET",
-            url: createURL("getSPMetadata"),
+            url: createURL("listIdps"),
             dataType: "json",
             async: false,
             success: function(data, textStatus, xhr) {
@@ -139,6 +140,16 @@
                 } else {
                     $login.find('#saml-login').hide();
                 }
+                var idpList = data.listidpsresponse.idp.sort(function (a, b) {
+                    return a.orgName.localeCompare(b.orgName);
+                });
+                $.each(idpList, function(index, idp) {
+                    $login.find('#saml-idps')
+                        .append($('<option>', {
+                            value: idp.id,
+                            text: idp.orgName
+                        }));
+                });
             },
             error: function(xhr) {
                 $login.find('#saml-login').hide();
