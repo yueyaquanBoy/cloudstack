@@ -133,7 +133,7 @@ public class SAMLUtils {
         return null;
     }
 
-    public static String buildAuthnRequestUrl(SAMLProviderMetadata spMetadata, SAMLProviderMetadata idpMetadata) {
+    public static String buildAuthnRequestUrl(final SAMLProviderMetadata spMetadata, final SAMLProviderMetadata idpMetadata, final String signatureAlgorithm) {
         String redirectUrl = "";
         try {
             DefaultBootstrap.bootstrap();
@@ -142,7 +142,7 @@ public class SAMLUtils {
             if (spMetadata.getKeyPair() != null) {
                 privateKey = spMetadata.getKeyPair().getPrivate();
             }
-            redirectUrl = idpMetadata.getSsoUrl() + "?" + SAMLUtils.generateSAMLRequestSignature("SAMLRequest=" + SAMLUtils.encodeSAMLRequest(authnRequest), privateKey);
+            redirectUrl = idpMetadata.getSsoUrl() + "?" + SAMLUtils.generateSAMLRequestSignature("SAMLRequest=" + SAMLUtils.encodeSAMLRequest(authnRequest), privateKey, signatureAlgorithm);
         } catch (ConfigurationException | FactoryConfigurationError | MarshallingException | IOException | NoSuchAlgorithmException | InvalidKeyException | java.security.SignatureException e) {
             s_logger.error("SAML AuthnRequest message building error: " + e.getMessage());
         }
@@ -233,13 +233,28 @@ public class SAMLUtils {
         return (Response) unmarshaller.unmarshall(element);
     }
 
-    public static String generateSAMLRequestSignature(String urlEncodedString, PrivateKey signingKey)
+    public static String generateSAMLRequestSignature(final String urlEncodedString, final PrivateKey signingKey, final String sigAlgorithmName)
             throws NoSuchAlgorithmException, SignatureException, InvalidKeyException, UnsupportedEncodingException {
         if (signingKey == null) {
             return urlEncodedString;
         }
-        String url = urlEncodedString + "&SigAlg=" + URLEncoder.encode(SignatureConstants.ALGO_ID_SIGNATURE_RSA_SHA1, HttpUtils.UTF_8);
-        Signature signature = Signature.getInstance("SHA1withRSA");
+
+        String opensamlAlgoIdSignature = SignatureConstants.ALGO_ID_SIGNATURE_RSA_SHA1;
+        String javaSignatureAlgorithmName = "SHA1withRSA";
+
+        if (sigAlgorithmName.equalsIgnoreCase("SHA256")) {
+            opensamlAlgoIdSignature = SignatureConstants.ALGO_ID_SIGNATURE_RSA_SHA256;
+            javaSignatureAlgorithmName = "SHA256withRSA";
+        } else if (sigAlgorithmName.equalsIgnoreCase("SHA384")) {
+            opensamlAlgoIdSignature = SignatureConstants.ALGO_ID_SIGNATURE_RSA_SHA384;
+            javaSignatureAlgorithmName = "SHA384withRSA";
+        } else if (sigAlgorithmName.equalsIgnoreCase("SHA512")) {
+            opensamlAlgoIdSignature = SignatureConstants.ALGO_ID_SIGNATURE_RSA_SHA512;
+            javaSignatureAlgorithmName = "SHA512withRSA";
+        }
+
+        String url = urlEncodedString + "&SigAlg=" + URLEncoder.encode(opensamlAlgoIdSignature, HttpUtils.UTF_8);
+        Signature signature = Signature.getInstance(javaSignatureAlgorithmName);
         signature.initSign(signingKey);
         signature.update(url.getBytes());
         String signatureString = Base64.encodeBytes(signature.sign(), Base64.DONT_BREAK_LINES);

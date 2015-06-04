@@ -154,7 +154,7 @@ public class SAML2LoginAPIAuthenticatorCmd extends BaseCmd implements APIAuthent
                             "IdP ID (" + idpId + ") is not found in our list of supported IdPs, cannot proceed.",
                             params, responseType));
                 }
-                String redirectUrl = SAMLUtils.buildAuthnRequestUrl(spMetadata, idpMetadata);
+                String redirectUrl = SAMLUtils.buildAuthnRequestUrl(spMetadata, idpMetadata, SAML2AuthManager.SAMLSignatureAlgorithm.value());
                 resp.sendRedirect(redirectUrl);
                 return "";
             } if (params.containsKey("SAMLart")) {

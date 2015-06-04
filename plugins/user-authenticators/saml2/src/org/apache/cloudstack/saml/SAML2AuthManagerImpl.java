@@ -384,6 +384,6 @@ public class SAML2AuthManagerImpl extends AdapterBase implements SAML2AuthManage
                 SAMLCloudStackRedirectionUrl, SAMLUserAttributeName,
                 SAMLDefaultDomain,
                 SAMLIdentityProviderMetadataURL, SAMLDefaultIdentityProviderId,
-                SAMLTimeout};
+                SAMLSignatureAlgorithm, SAMLTimeout};
     }
 }

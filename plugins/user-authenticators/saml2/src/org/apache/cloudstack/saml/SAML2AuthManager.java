@@ -63,6 +63,9 @@ public interface SAML2AuthManager extends PluggableAPIAuthenticator {
     public static final ConfigKey<String> SAMLDefaultIdentityProviderId = new ConfigKey<String>("Advanced", String.class, "saml2.default.idpid", "https://openidp.feide.no",
             "The default IdP entity ID to use only in case of multiple IdPs", true);
 
+    public static final ConfigKey<String> SAMLSignatureAlgorithm = new ConfigKey<String>("Advanced", String.class, "saml2.sigalg", "SHA1",
+            "The algorithm to use to when signing a SAML request. Default is SHA1, allowed algorithms: SHA1, SHA256, SHA384, SHA512", true);
+
     public static final ConfigKey<Integer> SAMLTimeout = new ConfigKey<Integer>("Advanced", Integer.class, "saml2.timeout", "30000",
             "SAML2 IDP Metadata Downloading and parsing etc. activity timeout in milliseconds", true);
 
