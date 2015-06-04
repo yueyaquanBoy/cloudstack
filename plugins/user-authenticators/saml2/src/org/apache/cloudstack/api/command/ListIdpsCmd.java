@@ -78,7 +78,11 @@ public class ListIdpsCmd extends BaseCmd implements APIAuthenticator {
         for (SAMLProviderMetadata metadata: _samlAuthManager.getAllIdPMetadata()) {
             IdpResponse idpResponse = new IdpResponse();
             idpResponse.setId(metadata.getEntityId());
-            idpResponse.setOrgName(metadata.getOrganizationName());
+            if (metadata.getOrganizationName() != null || !metadata.getOrganizationName().isEmpty()) {
+                idpResponse.setOrgName(metadata.getOrganizationName());
+            } else {
+                idpResponse.setOrgName(metadata.getEntityId());
+            }
             idpResponse.setOrgUrl(metadata.getOrganizationUrl());
             idpResponse.setObjectName("idp");
             idpResponseList.add(idpResponse);
