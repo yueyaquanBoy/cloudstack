@@ -154,7 +154,9 @@ public class SAML2LoginAPIAuthenticatorCmd extends BaseCmd implements APIAuthent
                             "IdP ID (" + idpId + ") is not found in our list of supported IdPs, cannot proceed.",
                             params, responseType));
                 }
-                String redirectUrl = SAMLUtils.buildAuthnRequestUrl(spMetadata, idpMetadata, SAML2AuthManager.SAMLSignatureAlgorithm.value());
+                String authnId = SAMLUtils.generateSecureRandomId();
+                s_logger.debug("Sending SAMLRequest id=" + authnId);
+                String redirectUrl = SAMLUtils.buildAuthnRequestUrl(authnId, spMetadata, idpMetadata, SAML2AuthManager.SAMLSignatureAlgorithm.value());
                 resp.sendRedirect(redirectUrl);
                 return "";
             } if (params.containsKey("SAMLart")) {
@@ -187,9 +189,13 @@ public class SAML2LoginAPIAuthenticatorCmd extends BaseCmd implements APIAuthent
                     s_logger.error("The default domain ID for SAML users is not set correct, it should be a UUID. ROOT domain will be used.");
                 }
 
+                String responseToId = processedSAMLResponse.getInResponseTo();
+                s_logger.debug("Received SAMLResponse in response to id=" + responseToId);
+
                 Issuer issuer = processedSAMLResponse.getIssuer();
                 SAMLProviderMetadata spMetadata = _samlAuthManager.getSPMetadata();
                 SAMLProviderMetadata idpMetadata = _samlAuthManager.getIdPMetadata(issuer.getValue());
+
 
                 // Set IdpId for this session
                 session.setAttribute(SAMLPluginConstants.SAML_IDPID, issuer.getValue());

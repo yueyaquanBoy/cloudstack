@@ -41,7 +41,8 @@ public class SAMLUtilsTest extends TestCase {
         String consumerUrl = "http://someurl.com";
         String idpUrl = "http://idp.domain.example";
         String spId = "cloudstack";
-        AuthnRequest req = SAMLUtils.buildAuthnRequestObject(spId, idpUrl, consumerUrl);
+        String authnId = SAMLUtils.generateSecureRandomId();
+        AuthnRequest req = SAMLUtils.buildAuthnRequestObject(authnId, spId, idpUrl, consumerUrl);
         assertEquals(req.getAssertionConsumerServiceURL(), consumerUrl);
         assertEquals(req.getDestination(), idpUrl);
         assertEquals(req.getIssuer().getValue(), spId);

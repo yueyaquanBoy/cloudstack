@@ -67,9 +67,9 @@
                             <input type="text" name="domain" />
                         </div>
                         <!-- Submit (login) -->
-                        <input type="submit" value="<fmt:message key="label.login"/>" />
-                        <div id="saml-login">
-                            <select id="saml-idps" style="margin-top: 20px">
+                        <input type="submit" value="<fmt:message key="label.login"/>" /><br />
+                        <div id="saml-login" style="margin-top: 30px">
+                            <select id="saml-idps">
                                 <option value=""></option> <!-- when this blank option is selected, default IdP will be used -->
                             </select>
                             <input type="samlsubmit" value="<fmt:message key="label.saml.login"/>"/>

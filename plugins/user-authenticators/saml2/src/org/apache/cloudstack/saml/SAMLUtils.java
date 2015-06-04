@@ -133,11 +133,11 @@ public class SAMLUtils {
         return null;
     }
 
-    public static String buildAuthnRequestUrl(final SAMLProviderMetadata spMetadata, final SAMLProviderMetadata idpMetadata, final String signatureAlgorithm) {
+    public static String buildAuthnRequestUrl(final String authnId, final SAMLProviderMetadata spMetadata, final SAMLProviderMetadata idpMetadata, final String signatureAlgorithm) {
         String redirectUrl = "";
         try {
             DefaultBootstrap.bootstrap();
-            AuthnRequest authnRequest = SAMLUtils.buildAuthnRequestObject(spMetadata.getEntityId(), idpMetadata.getSsoUrl(), spMetadata.getSsoUrl());
+            AuthnRequest authnRequest = SAMLUtils.buildAuthnRequestObject(authnId, spMetadata.getEntityId(), idpMetadata.getSsoUrl(), spMetadata.getSsoUrl());
             PrivateKey privateKey = null;
             if (spMetadata.getKeyPair() != null) {
                 privateKey = spMetadata.getKeyPair().getPrivate();
@@ -149,8 +149,7 @@ public class SAMLUtils {
         return redirectUrl;
     }
 
-    public static AuthnRequest buildAuthnRequestObject(String spId, String idpUrl, String consumerUrl) {
-        String authnId = generateSecureRandomId();
+    public static AuthnRequest buildAuthnRequestObject(final String authnId, final String spId, final String idpUrl, final String consumerUrl) {
         // Issuer object
         IssuerBuilder issuerBuilder = new IssuerBuilder();
         Issuer issuer = issuerBuilder.buildObject();

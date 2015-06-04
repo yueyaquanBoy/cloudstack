@@ -321,7 +321,7 @@ public class SAML2AuthManagerImpl extends AdapterBase implements SAML2AuthManage
             s_logger.error("OpenSAML bootstrapping failed: error: " + e.getMessage());
         } catch (NullPointerException e) {
             s_logger.error("Unable to setup SAML Auth Plugin due to NullPointerException" +
-                    " please check the SAML IDP metadata URL and entity ID in global settings: " + e.getMessage());
+                    " please check the SAML global settings: " + e.getMessage());
         }
         return true;
     }
