@@ -154,6 +154,12 @@ public class SAML2LoginAPIAuthenticatorCmd extends BaseCmd implements APIAuthent
                             "IdP ID (" + idpId + ") is not found in our list of supported IdPs, cannot proceed.",
                             params, responseType));
                 }
+                if (idpMetadata.getSsoUrl() == null || idpMetadata.getSsoUrl().isEmpty()) {
+                    throw new ServerApiException(ApiErrorCode.PARAM_ERROR, _apiServer.getSerializedApiError(ApiErrorCode.PARAM_ERROR.getHttpCode(),
+                            "IdP ID (" + idpId + ") has no Single Sign On URL defined please contact "
+                                    + idpMetadata.getContactPersonName() + " <" + idpMetadata.getContactPersonEmail() + ">, cannot proceed.",
+                            params, responseType));
+                }
                 String authnId = SAMLUtils.generateSecureRandomId();
                 s_logger.debug("Sending SAMLRequest id=" + authnId);
                 String redirectUrl = SAMLUtils.buildAuthnRequestUrl(authnId, spMetadata, idpMetadata, SAML2AuthManager.SAMLSignatureAlgorithm.value());
@@ -195,7 +201,6 @@ public class SAML2LoginAPIAuthenticatorCmd extends BaseCmd implements APIAuthent
                 Issuer issuer = processedSAMLResponse.getIssuer();
                 SAMLProviderMetadata spMetadata = _samlAuthManager.getSPMetadata();
                 SAMLProviderMetadata idpMetadata = _samlAuthManager.getIdPMetadata(issuer.getValue());
-
 
                 // Set IdpId for this session
                 session.setAttribute(SAMLPluginConstants.SAML_IDPID, issuer.getValue());
