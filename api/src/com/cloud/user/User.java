@@ -23,7 +23,7 @@ import org.apache.cloudstack.api.InternalIdentity;
 public interface User extends OwnedBy, InternalIdentity {
 
     public enum Source {
-        LDAP, UNKNOWN
+        LDAP, SAML2, UNKNOWN
     }
 
     public static final long UID_SYSTEM = 1;
