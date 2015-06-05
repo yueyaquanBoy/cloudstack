@@ -371,7 +371,14 @@
                 $.cookie('domainid', null);
                 $.cookie('role', null);
                 $.cookie('timezone', null);
-                window.location.href = createURL('samlSso&idpid=' + args.data.idpid);
+                var url = 'samlSso';
+                if (args.data.idpid) {
+                    url = url + '&idpid=' + args.data.idpid;
+                }
+                if (args.data.domain) {
+                    url = url + '&domain=' + args.data.domain;
+                }
+                window.location.href = createURL(url);
             },
 
             // Show cloudStack main UI widget

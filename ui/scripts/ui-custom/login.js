@@ -121,9 +121,10 @@
         });
 
         // SAML Login action
-        $login.find('input[type=samlsubmit]').click(function() {
+        $login.find('#saml-submit').click(function() {
             args.samlLoginAction({
-                data: {'idpid': $login.find('#saml-idps').find(':selected').val()}
+                data: {'idpid': $login.find('#saml-idps').find(':selected').val(),
+                       'domain': $login.find('#saml-domain').val()}
             });
         });
 
@@ -143,6 +144,13 @@
                 var idpList = data.listidpsresponse.idp.sort(function (a, b) {
                     return a.orgName.localeCompare(b.orgName);
                 });
+                if (idpList.length > 1) {
+                    $login.find('#saml-idps')
+                        .append($('<option>', {
+                            value: '',
+                            text: ''
+                        }));
+                }
                 $.each(idpList, function(index, idp) {
                     $login.find('#saml-idps')
                         .append($('<option>', {

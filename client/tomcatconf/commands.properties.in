@@ -26,6 +26,7 @@ logout=15
 samlSso=15
 samlSlo=15
 getSPMetadata=15
+listIdps=15
 
 ### Account commands
 createAccount=7
