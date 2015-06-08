@@ -17,12 +17,13 @@
 
 package org.apache.cloudstack.saml;
 
+import com.cloud.utils.component.PluggableService;
 import org.apache.cloudstack.api.auth.PluggableAPIAuthenticator;
 import org.apache.cloudstack.framework.config.ConfigKey;
 
 import java.util.Collection;
 
-public interface SAML2AuthManager extends PluggableAPIAuthenticator {
+public interface SAML2AuthManager extends PluggableAPIAuthenticator, PluggableService {
 
     public static final ConfigKey<Boolean> SAMLIsPluginEnabled = new ConfigKey<Boolean>("Advanced", Boolean.class, "saml2.enabled", "false",
             "Indicates whether SAML SSO plugin is enabled or not", true);
@@ -72,4 +73,11 @@ public interface SAML2AuthManager extends PluggableAPIAuthenticator {
     public SAMLProviderMetadata getSPMetadata();
     public SAMLProviderMetadata getIdPMetadata(String entityId);
     public Collection<SAMLProviderMetadata> getAllIdPMetadata();
+
+    public boolean isUserAuthorized(Long userId, String entityId);
+    public boolean authorizeUser(Long userId, String entityId, boolean enable);
+
+    public void saveToken(String authnId, String domain, String entity);
+    public SAMLTokenVO getToken(String authnId);
+    public void expireTokens();
 }

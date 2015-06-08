@@ -373,6 +373,7 @@ public class ApiConstants {
     public static final String ISOLATION_METHODS = "isolationmethods";
     public static final String PHYSICAL_NETWORK_ID = "physicalnetworkid";
     public static final String DEST_PHYSICAL_NETWORK_ID = "destinationphysicalnetworkid";
+    public static final String ENABLE = "enable";
     public static final String ENABLED = "enabled";
     public static final String SERVICE_NAME = "servicename";
     public static final String DHCP_RANGE = "dhcprange";

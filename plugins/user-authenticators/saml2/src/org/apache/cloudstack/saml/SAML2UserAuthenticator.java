@@ -58,8 +58,8 @@ public class SAML2UserAuthenticator extends DefaultUserAuthenticator {
         }
 
         final UserAccount userAccount = _userAccountDao.getUserAccount(username, domainId);
-        if (userAccount == null) {
-            s_logger.debug("Unable to find user with " + username + " in domain " + domainId);
+        if (userAccount == null || userAccount.getSource() != User.Source.SAML2) {
+            s_logger.debug("Unable to find user with " + username + " in domain " + domainId + ", or user source is not SAML2");
             return new Pair<Boolean, ActionOnFailedAuthentication>(false, null);
         } else {
             User user = _userDao.getUser(userAccount.getId());

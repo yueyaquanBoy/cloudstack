@@ -16,8 +16,14 @@
 // under the License.
 package org.apache.cloudstack.saml;
 
+import com.cloud.domain.Domain;
+import com.cloud.user.DomainManager;
+import com.cloud.user.User;
+import com.cloud.user.UserVO;
+import com.cloud.user.dao.UserDao;
 import com.cloud.utils.component.AdapterBase;
 import org.apache.cloudstack.api.auth.PluggableAPIAuthenticator;
+import org.apache.cloudstack.api.command.AuthorizeSAMLSSOCmd;
 import org.apache.cloudstack.api.command.GetServiceProviderMetaDataCmd;
 import org.apache.cloudstack.api.command.ListIdpsCmd;
 import org.apache.cloudstack.api.command.SAML2LoginAPIAuthenticatorCmd;
@@ -90,6 +96,15 @@ public class SAML2AuthManagerImpl extends AdapterBase implements SAML2AuthManage
 
     @Inject
     private KeystoreDao _ksDao;
+
+    @Inject
+    private SAMLTokenDao _samlTokenDao;
+
+    @Inject
+    private UserDao _userDao;
+
+    @Inject
+    DomainManager _domainMgr;
 
     @Override
     public boolean start() {
@@ -327,19 +342,6 @@ public class SAML2AuthManagerImpl extends AdapterBase implements SAML2AuthManage
     }
 
     @Override
-    public List<Class<?>> getAuthCommands() {
-        List<Class<?>> cmdList = new ArrayList<Class<?>>();
-        if (!isSAMLPluginEnabled()) {
-            return cmdList;
-        }
-        cmdList.add(SAML2LoginAPIAuthenticatorCmd.class);
-        cmdList.add(SAML2LogoutAPIAuthenticatorCmd.class);
-        cmdList.add(GetServiceProviderMetaDataCmd.class);
-        cmdList.add(ListIdpsCmd.class);
-        return cmdList;
-    }
-
-    @Override
     public SAMLProviderMetadata getSPMetadata() {
         return _spMetadata;
     }
@@ -365,6 +367,63 @@ public class SAML2AuthManagerImpl extends AdapterBase implements SAML2AuthManage
         return _idpMetadataMap.values();
     }
 
+    @Override
+    public boolean isUserAuthorized(Long userId, String entityId) {
+        UserVO user = _userDao.getUser(userId);
+        if (user != null) {
+            if (user.getSource().equals(User.Source.SAML2) &&
+                    user.getExternalEntity().equalsIgnoreCase(entityId)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Override
+    public boolean authorizeUser(Long userId, String entityId, boolean enable) {
+        UserVO user = _userDao.getUser(userId);
+        if (user != null) {
+            if (enable) {
+                user.setExternalEntity(entityId);
+                user.setSource(User.Source.SAML2);
+            } else {
+                if (user.getSource().equals(User.Source.SAML2)) {
+                    user.setSource(User.Source.SAML2DISABLED);
+                } else {
+                    return false;
+                }
+            }
+            _userDao.update(user.getId(), user);
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    public void saveToken(String authnId, String domainPath, String entity) {
+        Long domainId = null;
+        Domain domain = _domainMgr.findDomainByPath(domainPath);
+        if (domain != null) {
+            domainId = domain.getId();
+        }
+        SAMLTokenVO token = new SAMLTokenVO(authnId, domainId, entity);
+        if (_samlTokenDao.findByUuid(authnId) == null) {
+            _samlTokenDao.persist(token);
+        } else {
+            s_logger.warn("Duplicate SAML token for entity=" + entity + " token id=" + authnId + " domain=" + domainPath);
+        }
+    }
+
+    @Override
+    public SAMLTokenVO getToken(String authnId) {
+        return _samlTokenDao.findByUuid(authnId);
+    }
+
+    @Override
+    public void expireTokens() {
+        _samlTokenDao.expireTokens();
+    }
+
     public Boolean isSAMLPluginEnabled() {
         return SAMLIsPluginEnabled.value();
     }
@@ -372,6 +431,29 @@ public class SAML2AuthManagerImpl extends AdapterBase implements SAML2AuthManage
     @Override
     public String getConfigComponentName() {
         return "SAML2-PLUGIN";
+    }
+
+    @Override
+    public List<Class<?>> getAuthCommands() {
+        List<Class<?>> cmdList = new ArrayList<Class<?>>();
+        if (!isSAMLPluginEnabled()) {
+            return cmdList;
+        }
+        cmdList.add(SAML2LoginAPIAuthenticatorCmd.class);
+        cmdList.add(SAML2LogoutAPIAuthenticatorCmd.class);
+        cmdList.add(GetServiceProviderMetaDataCmd.class);
+        cmdList.add(ListIdpsCmd.class);
+        return cmdList;
+    }
+
+    @Override
+    public List<Class<?>> getCommands() {
+        List<Class<?>> cmdList = new ArrayList<Class<?>>();
+        if (!isSAMLPluginEnabled()) {
+            return cmdList;
+        }
+        cmdList.add(AuthorizeSAMLSSOCmd.class);
+        return cmdList;
     }
 
     @Override

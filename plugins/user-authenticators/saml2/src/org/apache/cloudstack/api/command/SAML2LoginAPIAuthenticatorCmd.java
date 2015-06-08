@@ -23,7 +23,6 @@ import com.cloud.exception.CloudAuthenticationException;
 import com.cloud.user.Account;
 import com.cloud.user.DomainManager;
 import com.cloud.user.UserAccount;
-import com.cloud.user.UserAccountVO;
 import com.cloud.user.dao.UserAccountDao;
 import com.cloud.utils.HttpUtils;
 import com.cloud.utils.db.EntityManager;
@@ -41,6 +40,7 @@ import org.apache.cloudstack.api.response.LoginCmdResponse;
 import org.apache.cloudstack.saml.SAML2AuthManager;
 import org.apache.cloudstack.saml.SAMLPluginConstants;
 import org.apache.cloudstack.saml.SAMLProviderMetadata;
+import org.apache.cloudstack.saml.SAMLTokenVO;
 import org.apache.cloudstack.saml.SAMLUtils;
 import org.apache.log4j.Logger;
 import org.opensaml.DefaultBootstrap;
@@ -141,12 +141,18 @@ public class SAML2LoginAPIAuthenticatorCmd extends BaseCmd implements APIAuthent
     @Override
     public String authenticate(final String command, final Map<String, Object[]> params, final HttpSession session, final String remoteAddress, final String responseType, final StringBuilder auditTrailSb, final HttpServletRequest req, final HttpServletResponse resp) throws ServerApiException {
         try {
-            if (!params.containsKey("SAMLResponse") && !params.containsKey("SAMLart")) {
+            if (!params.containsKey(SAMLPluginConstants.SAML_RESPONSE) && !params.containsKey("SAMLart")) {
                 String idpId = null;
-                final String[] idps = (String[])params.get(ApiConstants.IDP_ID);
-                if (idps != null && idps.length > 0) {
-                    idpId = idps[0];
+                String domainPath = null;
+
+                if (params.containsKey(ApiConstants.IDP_ID)) {
+                    idpId = ((String[])params.get(ApiConstants.IDP_ID))[0];
                 }
+
+                if (params.containsKey(ApiConstants.DOMAIN)) {
+                    domainPath = ((String[])params.get(ApiConstants.DOMAIN))[0];
+                }
+
                 SAMLProviderMetadata spMetadata = _samlAuthManager.getSPMetadata();
                 SAMLProviderMetadata idpMetadata = _samlAuthManager.getIdPMetadata(idpId);
                 if (idpMetadata == null) {
@@ -161,6 +167,7 @@ public class SAML2LoginAPIAuthenticatorCmd extends BaseCmd implements APIAuthent
                             params, responseType));
                 }
                 String authnId = SAMLUtils.generateSecureRandomId();
+                _samlAuthManager.saveToken(authnId, domainPath, idpMetadata.getEntityId());
                 s_logger.debug("Sending SAMLRequest id=" + authnId);
                 String redirectUrl = SAMLUtils.buildAuthnRequestUrl(authnId, spMetadata, idpMetadata, SAML2AuthManager.SAMLSignatureAlgorithm.value());
                 resp.sendRedirect(redirectUrl);
@@ -195,12 +202,27 @@ public class SAML2LoginAPIAuthenticatorCmd extends BaseCmd implements APIAuthent
                     s_logger.error("The default domain ID for SAML users is not set correct, it should be a UUID. ROOT domain will be used.");
                 }
 
-                String responseToId = processedSAMLResponse.getInResponseTo();
-                s_logger.debug("Received SAMLResponse in response to id=" + responseToId);
-
                 Issuer issuer = processedSAMLResponse.getIssuer();
                 SAMLProviderMetadata spMetadata = _samlAuthManager.getSPMetadata();
                 SAMLProviderMetadata idpMetadata = _samlAuthManager.getIdPMetadata(issuer.getValue());
+
+                String responseToId = processedSAMLResponse.getInResponseTo();
+                s_logger.debug("Received SAMLResponse in response to id=" + responseToId);
+                SAMLTokenVO token = _samlAuthManager.getToken(responseToId);
+                if (token != null) {
+                    if (token.getDomainId() != null) {
+                        domainId = token.getDomainId();
+                    }
+                    if (!(token.getEntity().equalsIgnoreCase(issuer.getValue()))) {
+                        throw new ServerApiException(ApiErrorCode.ACCOUNT_ERROR, _apiServer.getSerializedApiError(ApiErrorCode.ACCOUNT_ERROR.getHttpCode(),
+                                "The SAML response contains Issuer Entity ID that is different from the original SAML request",
+                                params, responseType));
+                    }
+                } else {
+                    throw new ServerApiException(ApiErrorCode.ACCOUNT_ERROR, _apiServer.getSerializedApiError(ApiErrorCode.ACCOUNT_ERROR.getHttpCode(),
+                            "Received SAML response for a SSO request that we may not have made or has expired, please try logging in again",
+                            params, responseType));
+                }
 
                 // Set IdpId for this session
                 session.setAttribute(SAMLPluginConstants.SAML_IDPID, issuer.getValue());
@@ -267,15 +289,19 @@ public class SAML2LoginAPIAuthenticatorCmd extends BaseCmd implements APIAuthent
                     throw new ServerApiException(ApiErrorCode.ACCOUNT_ERROR, _apiServer.getSerializedApiError(ApiErrorCode.ACCOUNT_ERROR.getHttpCode(),
                             "Failed to find admin configured username attribute in the SAML Response. Please ask your administrator to check SAML user attribute name.", params, responseType));
                 }
-                List<UserAccountVO> userAccounts = _userAccountDao.getAllUsersByName(username);
-                UserAccount userAccount = null;
-                if (userAccounts != null && userAccounts.size() > 0) {
-                    userAccount = userAccounts.get(0);
+
+                UserAccount userAccount = _userAccountDao.getUserAccount(username, domainId);
+                if (userAccount == null || userAccount.getExternalEntity() == null ||  !userAccount.getExternalEntity().equalsIgnoreCase(issuer.getValue())) {
+                    throw new ServerApiException(ApiErrorCode.ACCOUNT_ERROR, _apiServer.getSerializedApiError(ApiErrorCode.ACCOUNT_ERROR.getHttpCode(),
+                            "Your authenticated user is not authorized, please contact your administrator",
+                            params, responseType));
                 }
+
                 if (userAccount != null) {
                     try {
                         if (_apiServer.verifyUser(userAccount.getId())) {
-                            LoginCmdResponse loginResponse = (LoginCmdResponse) _apiServer.loginUser(session, userAccount.getUsername(), userAccount.getPassword(), userAccount.getDomainId(), null, remoteAddress, params);
+                            LoginCmdResponse loginResponse = (LoginCmdResponse) _apiServer.loginUser(session, userAccount.getUsername(), userAccount.getUsername() + userAccount.getSource().toString(),
+                                    userAccount.getDomainId(), null, remoteAddress, params);
                             resp.addCookie(new Cookie("userid", URLEncoder.encode(loginResponse.getUserId(), HttpUtils.UTF_8)));
                             resp.addCookie(new Cookie("domainid", URLEncoder.encode(loginResponse.getDomainId(), HttpUtils.UTF_8)));
                             resp.addCookie(new Cookie("role", URLEncoder.encode(loginResponse.getType(), HttpUtils.UTF_8)));
