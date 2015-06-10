@@ -162,8 +162,34 @@
                 validation: {
                     required: false
                 }
+            },
+            samlEnable: {
+                label: 'label.saml.enable',
+                docID: 'helpSamlEnable',
+                isBoolean: true,
+                validation: {
+                    required: false
+                }
+            },
+            samlEntity: {
+                label: 'label.saml.entity',
+                docID: 'helpSamlEntity',
+                validation: {
+                    required: false
+                },
+                select: function(args) {
+                    var items = [];
+                    $(g_idpList).each(function() {
+                        items.push({
+                            id: this.id,
+                            description: this.orgName
+                        });
+                    });
+                    args.response.success({
+                        data: items
+                    });
+                }
             }
-
         },
 
         action: function(args) {

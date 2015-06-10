@@ -144,6 +144,7 @@
                 var idpList = data.listidpsresponse.idp.sort(function (a, b) {
                     return a.orgName.localeCompare(b.orgName);
                 });
+                g_idpList = idpList;
                 if (idpList.length > 1) {
                     $login.find('#saml-idps')
                         .append($('<option>', {
